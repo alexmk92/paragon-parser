@@ -1,0 +1,30 @@
+{
+  "name": "replay-parser",
+  "version": "1.0.0",
+  "description": "Parses chunks from the replay endpoint of Epic's Paragon replay service for statistical analysis.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/alexmk92/paragon-replay-parse.git"
+  },
+  "keywords": [
+    "replay",
+    "parser",
+    "paragon"
+  ],
+  "author": "Alex Sims",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/alexmk92/paragon-replay-parse/issues"
+  },
+  "homepage": "https://github.com/alexmk92/paragon-replay-parse#readme",
+  "dependencies": {
+    "mysql": "^2.11.1",
+    "requestify": "^0.1.17",
+    "underscore": "^1.8.3"
+  }
+}
