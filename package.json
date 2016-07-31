@@ -4,8 +4,7 @@
   "description": "Parses chunks from the replay endpoint of Epic's Paragon replay service for statistical analysis.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node index.js"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
     "type": "git",

@@ -10,6 +10,7 @@ var RETRY_SERVICE_DELAY = 10000; // if we can't get the latest 500, this is a re
  * Populate the list of replays
  */
 function getLatestReplays() {
+    console.log("Getting replays");
     return new Promise(function(resolve, reject) {
         Replay.latest().then(function(results) {
             results.forEach(function(replay) {
@@ -28,15 +29,18 @@ function getLatestReplays() {
             reject();
         });
         console.log('got replays');
-    }).then(function() {
-        beginQueue();
     });
 };
 
-getLatestReplays();
+setInterval(function() {
+    getLatestReplays();
+}, 5000);
+
 
 function beginQueue() {
-    console.log('beginning queue');
-    console.log(replays[0]);
+    console.log("processing the items brah");
 }
+setInterval(function() {
+    beginQueue();
+}, 1000);
 
