@@ -6,18 +6,15 @@ var Logger = require('./src/Logger');
  */
 function getLatestReplays() {
     console.log("Getting replays");
+    Replay.latest().then(function(data) {
+        console.log('Got ' + data.length + ' records');
+    });
+    /*
     return new Promise(function(resolve, reject) {
-        Replay.latest().then(function(results) {
-            results.forEach(function(replay) {
-                new Replay(replay.replayId)
-            });
-            resolve();
-        }, function(err) {
-            Logger.append('./logs/log.txt', err);
-            reject();
-        });
+        Replay.latest();
         console.log('got replays');
     });
+    */
 };
 
 setInterval(function() {

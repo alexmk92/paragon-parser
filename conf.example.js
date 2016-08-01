@@ -2,5 +2,6 @@ module.exports = {
     DATABASE: '',
     HOST: '',
     USER: '',
-    PASSWORD: ''
+    PASSWORD: '',
+    MONGO_HOST: ''
 };
