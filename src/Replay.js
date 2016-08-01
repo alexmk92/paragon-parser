@@ -15,6 +15,7 @@ var LOG_FILE = './logs/log.txt';
 
 var Replay = function(replayId, checkpointTime, queue) {
     this.replayId = replayId;
+    this.scheduledTime = new Date();
     this.replayJSON = null;
     this.checkpointTime = checkpointTime;
 

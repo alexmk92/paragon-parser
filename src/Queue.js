@@ -1,6 +1,10 @@
 var Connection = require('./Connection');
 var Replay = require('./Replay');
 var Logger = require('./Logger');
+var MongoClient = require('mongodb').MongoClient;
+var ObjectId = require('mongodb').ObjectID;
+var assert = require('assert');
+var config = require('../conf.js');
 
 var conn = new Connection();
 
@@ -11,9 +15,8 @@ var conn = new Connection();
 var Queue = function() {
     this.queue = [];
 
-    this.maxWorkers = 5;
+    this.maxWorkers = 1;
     this.currentWorkers = 0;
-    this.scheduledJobs = 0;
 
     this.workers = [];
 };
@@ -24,11 +27,26 @@ var Queue = function() {
  */
 
 Queue.prototype.removeItemFromQueue = function(item) {
-    console.log("Removing replay: ", item.replayId);
     var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
     conn.query(query, function() {
-       Logger.log('./logs/log.txt', 'Updated replays to no longer reference ' + item.replayId);
-    });
+        query = 'UPDATE queue SET completed=true, reserved=0, priority=0 WHERE replayId="' + item.replayId + '"';
+        conn.query(query, function() {
+            this.uploadFile(item.replayJSON);
+            this.workers.some(function(worker) {
+                if(worker.replayId === item.replayId) {
+                    this.workers.splice(this.workers.indexOf(worker));
+                    this.currentWorkers-=1;
+                    this.initializeWorkers().then(function() {
+                        this.runTasks();
+                    }.bind(this));
+                }
+            }.bind(this));
+            if(this.queue.length < 50) {
+                this.fillBuffer();
+            }
+            Logger.log('./logs/log.txt', 'Updated replays to no longer reference ' + item.replayId);
+        }.bind(this));
+    }.bind(this));
 };
 
 /*
@@ -36,7 +54,16 @@ Queue.prototype.removeItemFromQueue = function(item) {
  */
 
 Queue.prototype.uploadFile = function(item) {
-    
+    var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
+    MongoClient.connect(url, function(err, db) {
+        assert.equal(null, err);
+        console.log('connected to the server woo!');
+        db.collection('replays').insertOne(item, function(err, result) {
+            assert.equal(err, null);
+            console.log('Inserted document into the collection')
+        });
+        db.close();
+    });
 };
 
 /*
@@ -44,9 +71,16 @@ Queue.prototype.uploadFile = function(item) {
  */
 
 Queue.prototype.schedule = function(item, ms) {
-    console.log("Setting scheduler");
     var scheduledDate = new Date(Date.now() + ms);
-    console.log("Scheduling for: ", scheduledDate);
+    var query = 'UPDATE queue SET scheduled="' + scheduledDate +  '", priority=1 WHERE replayId="' + item.replayId + '"';
+    conn.query(query, function() {
+        this.uploadFile(item.replayJSON);
+        this.workers.some(function(worker) {
+            if(worker.replayId === item.replayId) {
+                worker.scheduledTime = scheduledDate;
+            }
+        }.bind(this));
+    }.bind(this));
 };
 
 /*
@@ -56,7 +90,7 @@ Queue.prototype.schedule = function(item, ms) {
 
 Queue.prototype.fillBuffer = function() {
     // First try to get data from the queue
-    var queueQuery = 'SELECT * FROM queue WHERE reserved = false AND completed = false';
+    var queueQuery = 'SELECT * FROM queue WHERE completed = false ORDER BY priority DESC';
     conn.query(queueQuery, function(results) {
         if(results.length === 0) {
             // Attempt to put new data into the queue
@@ -72,7 +106,10 @@ Queue.prototype.fillBuffer = function() {
                             Logger.log('./logs/log.txt', replay.replayId + ' is now in the queue');
                         });
                     }.bind(this));
-                    this.fillBuffer();
+                    console.log('attempting to refill the buffer, normally due to all processes being reserved');
+                    setTimeout(function() {
+                        this.fillBuffer();
+                    }.bind(this), 2500);
                 } else {
                     console.log('no jobs for queue, attempting to fill buffer in 10 seconds...');
                     setTimeout(function() {
@@ -81,32 +118,16 @@ Queue.prototype.fillBuffer = function() {
                 }
             }.bind(this));
         } else {
-            console.log('processing ' + results.length + ' items');
-            results.forEach(function(result) {
-                this.queue.push(new Replay(result.replayId, this));
-            }.bind(this));
-            this.start();
+            setTimeout(function() {
+                console.log('processing ' + results.length + ' items');
+                this.queue = [];
+                results.forEach(function(result) {
+                    this.queue.push(new Replay(result.replayId, result.checkpointTime, this));
+                }.bind(this));
+                this.start();
+            }.bind(this), 5000);
         }
     }.bind(this));
-};
-
-/*
- * Reserves an item
- */
-
-Queue.prototype.reserve = function(replay) {
-    // If someone reserves before we do this, then we can bail out
-    var reserved_query = 'UPDATE queue SET reserved = true WHERE replayId = "' + replay.replayId + '" AND reserved = false';
-    conn.query(reserved_query, function(rows) {
-        rows.forEach(function(row) {
-            if(row.changedRows === 0) {
-                console.log('this is reserved');
-            } else {
-                console.log('do the work')
-            }
-        });
-        Logger.log('./logs/log.txt', replay.replayId + ' is now reserved for processing by this queue');
-    });
 };
 
 /*
@@ -115,7 +136,9 @@ Queue.prototype.reserve = function(replay) {
 
 Queue.prototype.start = function() {
     this.initializeWorkers().then(function() {
-        this.runTasks();
+        setInterval(function() {
+            this.runTasks();
+        }.bind(this), 2000);
     }.bind(this));
 };
 
@@ -124,7 +147,75 @@ Queue.prototype.start = function() {
  */
 
 Queue.prototype.runTasks = function() {
+    if(this.workers.length > 0) {
+        this.workers.forEach(function(worker) {
+            this.reserve(worker.replayId).then(function() {
+                if(new Date().getTime() > worker.scheduledTime) {
+                    console.log('running work for: ', worker.replayId);
+                    worker.parseDataAtCheckpoint();
+                }
+            }.bind(this), function() {
+                this.workers.splice(this.workers.indexOf(worker));
+                if(this.workers.length < 2) {
+                    this.fillBuffer();
+                }
+            }.bind(this));
+        }.bind(this));
+    } else {
+        this.initializeWorkers().then(function() {
+            this.runTasks();
+        }.bind(this));
+    }
+};
 
+/*
+ * Reserves an item
+ */
+
+Queue.prototype.reserve = function(replayId) {
+    return new Promise(function(resolve, reject) {
+        // If someone reserves before we do this, then we can bail out
+        var reserved_query = 'UPDATE queue SET reserved = true WHERE replayId = "' + replayId + '" AND reserved = false';
+        conn.query(reserved_query, function(row) {
+            if(this.ownsReservedId(replayId)) {
+                resolve();
+            } else if(row.changedRows === 0) {
+                reject();
+            } else {
+                resolve();
+            }
+            Logger.log('./logs/log.txt', replayId + ' is now reserved for processing by this queue');
+        }.bind(this));
+    }.bind(this));
+};
+
+Queue.prototype.ownsReservedId = function(replayId) {
+    var found = false;
+    this.workers.some(function(worker) {
+         if(worker.replayId === replayId) {
+             found = true;
+             console.log('you own this reserved id: ', replayId);
+         }
+        return found;
+    });
+    return found;
+};
+
+/*
+ * Stops the queue and releases any assets it is locking
+ */
+
+Queue.prototype.stop = function() {
+    this.workers.forEach(function(worker) {
+        // Release the lock on the resource
+        var query = 'UPDATE queue SET reserved = 0 WHERE replayId="' + worker.replayId + '"';
+        conn.query(query, function() {
+            console.log('shut down worker: ', worker.replayId);
+            this.workers.splice(this.workers.indexOf(worker), 1);
+            this.currentWorkers-=1;
+        }.bind(this));
+    }.bind(this));
+    console.log('All workers have been shut down');
 };
 
 /*
@@ -133,8 +224,11 @@ Queue.prototype.runTasks = function() {
 
 Queue.prototype.initializeWorkers = function() {
     return new Promise(function(resolve, reject) {
-        for(var i = 0; i < this.maxWorkers; i++) {
-            this.workers.push(this.next());
+        // In the event we lose workers, we respawn them here, init them here
+        var workersToCreate = this.maxWorkers - this.workers.length;
+        for(var i = 0; i < workersToCreate; i++) {
+            var item = this.next();
+            this.workers.push(item);
             this.currentWorkers++;
         }
         resolve();
@@ -149,9 +243,6 @@ Queue.prototype.next = function() {
     var currentJob = this.queue.shift();
     if(currentJob) {
         return currentJob;
-    }
-    if(!currentJob || this.items.length < 100) {
-        this.fillBuffer();
     }
 };
 
