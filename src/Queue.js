@@ -27,7 +27,7 @@ var Queue = function() {
  * Removes a specific item from the queue
  */
 
-Queue.prototype.removeItemAtIndex = function(item) {
+Queue.prototype.removeItemFromQueue = function(item) {
     console.log("Removing replay: ", item.replayId);
 };
 

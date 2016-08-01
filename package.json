@@ -22,6 +22,7 @@
   },
   "homepage": "https://github.com/alexmk92/paragon-replay-parse#readme",
   "dependencies": {
+    "async.js": "^0.9.5",
     "mysql": "^2.11.1",
     "requestify": "^0.1.17",
     "underscore": "^1.8.3"
