@@ -34,6 +34,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
             this.uploadFile(item.replayJSON);
             this.workers.some(function(worker) {
                 if(worker.replayId === item.replayId) {
+                    worker.isRunningOnWorker = false;
                     this.workers.splice(this.workers.indexOf(worker));
                     this.currentWorkers-=1;
                     this.initializeWorkers().then(function() {
@@ -58,10 +59,31 @@ Queue.prototype.uploadFile = function(item) {
     MongoClient.connect(url, function(err, db) {
         assert.equal(null, err);
         console.log('connected to the server woo!');
-        db.collection('replays').insertOne(item, function(err, result) {
-            assert.equal(err, null);
-            console.log('Inserted document into the collection')
+        db.collection('replays').update(
+            { replayId: item.replayId },
+            { $set: item },
+            { upsert: true}
+        );
+        /*
+        var cursor = db.collection('replays').find( { "replayId" : item.replayId });
+        cursor.each(function(err, doc) {
+           assert.equal(err, null);
+            if(doc !== null) {
+                db.collection('replays').updateOne(
+                    { "replayId" : item.replayId },
+                    { $set: item },
+                    function(err, results) {
+                        console.log('updated mongo record');
+                    }
+                )
+            } else {
+                db.collection('replays').insertOne(item, function(err, result) {
+                    assert.equal(err, null);
+                    console.log('Inserted document into the collection')
+                });
+            }
         });
+        */
         db.close();
     });
 };
@@ -72,12 +94,17 @@ Queue.prototype.uploadFile = function(item) {
 
 Queue.prototype.schedule = function(item, ms) {
     var scheduledDate = new Date(Date.now() + ms);
+    console.log('scheduled to run at: ', scheduledDate);
     var query = 'UPDATE queue SET scheduled="' + scheduledDate +  '", priority=1 WHERE replayId="' + item.replayId + '"';
     conn.query(query, function() {
         this.uploadFile(item.replayJSON);
         this.workers.some(function(worker) {
             if(worker.replayId === item.replayId) {
+                worker.isRunningOnWorker = false;
                 worker.scheduledTime = scheduledDate;
+                setTimeout(function() {
+                    worker.getNextCheckpoint();
+                }, ms);
             }
         }.bind(this));
     }.bind(this));
@@ -90,13 +117,16 @@ Queue.prototype.schedule = function(item, ms) {
 
 Queue.prototype.fillBuffer = function() {
     // First try to get data from the queue
-    var queueQuery = 'SELECT * FROM queue WHERE completed = false ORDER BY priority DESC';
+    var queueQuery = 'SELECT queue.replayId, replays.checkpointTime FROM queue' +
+                     ' JOIN replays ON replays.replayId = queue.replayId' +
+                     ' WHERE queue.completed = false ORDER BY priority DESC';
     conn.query(queueQuery, function(results) {
         if(results.length === 0) {
             // Attempt to put new data into the queue
-            var query = 'SELECT replayId FROM replays ' +
+            var query = 'SELECT replayId, checkpointTime FROM replays ' +
                 'WHERE replays.completed = false ' +
                 'LIMIT 10';
+
 
             conn.query(query, function(results) {
                 if(results.length > 0) {
@@ -122,10 +152,11 @@ Queue.prototype.fillBuffer = function() {
                 console.log('processing ' + results.length + ' items');
                 this.queue = [];
                 results.forEach(function(result) {
-                    this.queue.push(new Replay(result.replayId, result.checkpointTime, this));
+                    console.log('got result: ', result.checkpointTime);
+                    this.queue.push(new Replay(result.replayId, results.checkpointTime, this));
                 }.bind(this));
                 this.start();
-            }.bind(this), 5000);
+            }.bind(this), 1250);
         }
     }.bind(this));
 };
@@ -136,9 +167,7 @@ Queue.prototype.fillBuffer = function() {
 
 Queue.prototype.start = function() {
     this.initializeWorkers().then(function() {
-        setInterval(function() {
-            this.runTasks();
-        }.bind(this), 2000);
+        this.runTasks();
     }.bind(this));
 };
 
@@ -150,13 +179,14 @@ Queue.prototype.runTasks = function() {
     if(this.workers.length > 0) {
         this.workers.forEach(function(worker) {
             this.reserve(worker.replayId).then(function() {
-                if(new Date().getTime() > worker.scheduledTime) {
+                if(!this.isRunningOnWorker && new Date().getTime() > worker.scheduledTime) {
                     console.log('running work for: ', worker.replayId);
+                    worker.isRunningOnWorker = true;
                     worker.parseDataAtCheckpoint();
                 }
             }.bind(this), function() {
                 this.workers.splice(this.workers.indexOf(worker));
-                if(this.workers.length < 2) {
+                if(this.workers.length === 0) {
                     this.fillBuffer();
                 }
             }.bind(this));
@@ -228,6 +258,7 @@ Queue.prototype.initializeWorkers = function() {
         var workersToCreate = this.maxWorkers - this.workers.length;
         for(var i = 0; i < workersToCreate; i++) {
             var item = this.next();
+            item.isRunningOnWorker = true;
             this.workers.push(item);
             this.currentWorkers++;
         }

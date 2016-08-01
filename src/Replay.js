@@ -17,7 +17,7 @@ var Replay = function(replayId, checkpointTime, queue) {
     this.replayId = replayId;
     this.scheduledTime = new Date();
     this.replayJSON = null;
-    this.checkpointTime = checkpointTime;
+    this.checkpointTime = 0;
 
     this.queueManager = queue;
 };
@@ -39,14 +39,19 @@ Replay.prototype.parseDataAtCheckpoint = function() {
             this.replayJSON.startedAt = new Date(data.startedAt);
             // Keep getting the latest check point
             this.getNextCheckpoint(this.replayJSON.newCheckpointTime, function(checkpoint) {
-                this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
-                this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
+                if(typeof checkpoint.lastCheckpointTime !== 'undefined' && typeof checkpoint.currentCheckpointTime !== 'undefined') {
+                    this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
+                    this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
+                }
+                console.log('next cp: ', checkpoint);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
                 conn.query(query, function() {
                     console.log('updated the item');
                 });
+                //console.log(this.replayJSON.lastCheckpointTime);
+                //console.log(this.replayJSON.currentCheckpointTime);
 
                 if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 3 minutes
