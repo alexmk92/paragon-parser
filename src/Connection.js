@@ -17,8 +17,8 @@ var Connection = function() {
 
 Connection.prototype.query = function(query, cb) {
     this.connection.query(query, function(err, rows) {
-        //if(err) Logger.append('./logs/log.txt', err);
-        //console.log(rows);
+        if(err) Logger.append('./logs/log.txt', err);
+        else cb(rows);
     });
 };
 

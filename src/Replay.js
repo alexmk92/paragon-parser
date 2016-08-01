@@ -13,9 +13,10 @@ var LOG_FILE = './logs/log.txt';
  * it has one static method called latest which returns a list of replay ids
  */
 
-var Replay = function(replayId, queue) {
+var Replay = function(replayId, checkpointTime, queue) {
     this.replayId = replayId;
     this.replayJSON = null;
+    this.checkpointTime = checkpointTime;
 
     this.queueManager = queue;
 };
@@ -34,10 +35,18 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
             this.replayJSON.isLive = data.isLive;
+            this.replayJSON.startedAt = new Date(data.startedAt);
             // Keep getting the latest check point
             this.getNextCheckpoint(this.replayJSON.newCheckpointTime, function(checkpoint) {
                 this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                 this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
+
+                var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
+                var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
+                conn.query(query, function() {
+                    console.log('updated the item');
+                });
+
                 if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 3 minutes
                     this.queueManager.schedule(this, 60000);
@@ -55,7 +64,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     this.replayJSON.kills = this.replayJSON.kills.concat(events.kills);
                                     console.log('attemptupdate player');
                                     this.updatePlayerStats().then(function(newPlayers) {
-                                        //this.replayJSON.players = newPlayers;
+                                        this.replayJSON.players = newPlayers;
                                         fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                         this.parseDataAtCheckpoint();
                                     }.bind(this));
@@ -65,9 +74,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
                                 this.replayJSON.towerKills = this.replayJSON.towerKills.concat(events.towerKills);
                                 this.replayJSON.kills = this.replayJSON.kills.concat(events.kills);
-                                console.log('attemptupdate player');
                                 this.updatePlayerStats().then(function(newPlayers) {
-                                    //this.replayJSON.players = newPlayers;
+                                    this.replayJSON.players = newPlayers;
                                     fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                     this.parseDataAtCheckpoint();
                                 }.bind(this));
@@ -144,33 +152,25 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     gameType: null
                                 };
 
-                                for(var i = 0; i < 10; i++) {
-                                    var player = Replay.getEmptyPlayerObject();
-                                    player.accountId = data.users[i];
-                                    player.username = payload.data['UserDetails'][i].Nickname;
-                                    player.kills = payload.data['UserDetails'][i].HeroLastHits;
-                                    player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
-                                    player.deaths = payload.data['UserDetails'][i].Deaths;
-                                    player.assists = payload.data['UserDetails'][i].Assists;
-                                    player.heroLevel = payload.data['UserDetails'][i].Level;
-                                    player.team = payload.data['UserDetails'][i].Team;
-                                    player.hero = payload.data['UserDetails'][i].HeroName;
-
-                                    matchDetails.players.push(player);
-                                }
                                 // Get the game type
                                 var custom = false;
                                 var featured = false;
                                 var pvp = false;
+                                var solo_bot = false;
+                                var coop_bot = false;
 
                                 // Get the game type
-                                for(var j = 10; j < data.users.length; j++) {
+                                for(var j = 0; j < data.users.length; j++) {
                                     if(data.users[j].toUpperCase().trim() === 'FLAG_CUSTOM') {
                                         custom = true;
                                     } else if(data.users[j].toUpperCase().trim() === 'FLAG_PVP') {
                                         pvp = true;
                                     } else if(data.users[j].toUpperCase().trim() === 'FLAG_FEATURED') {
                                         featured = true;
+                                    } else if(data.users[j].toUpperCase().trim() === 'FLAG_SOLO') {
+                                        solo_bot = true;
+                                    } else if(data.users[j].toUpperCase().trim() === 'FLAG_COOP') {
+                                        coop_bot = true;
                                     }
                                 }
                                 if(custom && featured) {
@@ -186,6 +186,62 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 } else {
                                     matchDetails.gameType = 'PVP';
                                 }
+                                if(solo_bot) {
+                                    matchDetails.gameType = 'SOLO AI';
+                                } else if(coop_bot) {
+                                    matchDetails.gameType = 'COOP AI';
+                                }
+
+                                var playersArray = [];
+                                var botsArray = [];
+
+                                // Remove bots from master array and store in temp array
+                                payload.data['UserDetails'].forEach(function(user, i) {
+                                    var player = Replay.getEmptyPlayerObject();
+                                    if(coop_bot || solo_bot) {
+                                        if(Replay.isBot(user.Nickname)) {
+                                            player.accountId = 'bot';
+                                            player.username = payload.data['UserDetails'][i].Nickname;
+                                            player.kills = payload.data['UserDetails'][i].HeroLastHits;
+                                            player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
+                                            player.deaths = payload.data['UserDetails'][i].Deaths;
+                                            player.assists = payload.data['UserDetails'][i].Assists;
+                                            player.heroLevel = payload.data['UserDetails'][i].Level;
+                                            player.team = payload.data['UserDetails'][i].Team;
+                                            player.hero = payload.data['UserDetails'][i].HeroName;
+                                            botsArray.push(player);
+                                        } else {
+                                            player.username = payload.data['UserDetails'][i].Nickname;
+                                            player.kills = payload.data['UserDetails'][i].HeroLastHits;
+                                            player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
+                                            player.deaths = payload.data['UserDetails'][i].Deaths;
+                                            player.assists = payload.data['UserDetails'][i].Assists;
+                                            player.heroLevel = payload.data['UserDetails'][i].Level;
+                                            player.team = payload.data['UserDetails'][i].Team;
+                                            player.hero = payload.data['UserDetails'][i].HeroName;
+                                            playersArray.push(player);
+                                        }
+                                    } else {
+                                        player.username = payload.data['UserDetails'][i].Nickname;
+                                        player.kills = payload.data['UserDetails'][i].HeroLastHits;
+                                        player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
+                                        player.deaths = payload.data['UserDetails'][i].Deaths;
+                                        player.assists = payload.data['UserDetails'][i].Assists;
+                                        player.heroLevel = payload.data['UserDetails'][i].Level;
+                                        player.team = payload.data['UserDetails'][i].Team;
+                                        player.hero = payload.data['UserDetails'][i].HeroName;
+                                        playersArray.push(player);
+                                    }
+                                });
+                                console.log('there are: ' + playersArray.length + ' players, and ' + botsArray.length + ' bots');
+                                // Bind the user ids for each player
+                                playersArray.forEach(function(player, i) {
+                                    player.accountId = data.users[i];
+                                    console.log("NEW PLAYER IS: ", player);
+                                });
+                                // Add bots back into array
+                                playersArray = playersArray.concat(botsArray);
+                                matchDetails.players = playersArray;
 
                                 resolve(matchDetails);
                             }
@@ -219,9 +275,7 @@ Replay.prototype.updatePlayerStats = function() {
                 var startTime = this.replayJSON.lastCheckpointTime;
                 var endTime = this.replayJSON.newCheckpointTime;
 
-                console.log('getting here cp dmg')
                 return this.getHeroDamageAtCheckpoint(startTime, endTime).then(function(allPlayerDamage) {
-                    console.log('mapping players')
                     var newPlayers = this.replayJSON.players.map(function(player, i) {
                         var playerDamage = Replay.getDamageForPlayer(player, allPlayerDamage);
 
@@ -230,6 +284,8 @@ Replay.prototype.updatePlayerStats = function() {
                         player.deaths = data['UserDetails'][i].Deaths;
                         player.assists = data['UserDetails'][i].Assists;
                         player.heroLevel = data['UserDetails'][i].Level;
+
+                        console.log('player damage is: ', playerDamage);
 
                         player.damageToHeroes = playerDamage.damageToHeroes;
                         player.damageToTowers = playerDamage.damageToTowers;
@@ -349,26 +405,20 @@ Replay.prototype.getReplaySummary = function() {
 };
 
 /*
- * TYPE: POST
- * EP : /replay/v2/replay/{replayId}/startDownloading?user={userId}
- * Hits the /startDownloading endpoint, this will tell us at what chunk the current
- * live match is in, if the state is final we can ignore all other chunks and just process
- * the final chunk
+ * TYPE: GET
+ * EP : /replay/v2/replay?user={replayId}
+ * Gets info on the game, whether its live and the timestamp it started on
  */
 Replay.prototype.isGameLive = function() {
     return new Promise(function(resolve, reject) {
-        var url = `${REPLAY_URL}/replay/v2/replay/${this.replayId}/startDownloading`;
+        var url = REPLAY_URL + '/replay/v2/replay?user=' + this.replayId;
         console.log("URL IS: " + url);
-        requestify.post(url).then(function(response) {
+        requestify.get(url).then(function(response) {
             var body = response.getBody();
-            if(body.hasOwnProperty('state')) {
-                if(body.state.toUpperCase() === 'FINAL') {
-                    resolve({ isLive: false});
-                } else {
-                    resolve({ isLive: true });
-                }
+            if(body.hasOwnProperty('replays')) {
+                resolve({ isLive: body.replays[0].bIsLive, startedAt: body.replays[0].Timestamp });
             } else {
-                Logger.append(LOG_FILE, "No state property on the download object");
+                Logger.append(LOG_FILE, "No replays property on the isGameLive object");
                 reject();
             }
         }, function(err) {
@@ -522,7 +572,8 @@ Replay.prototype.getFileHandle = function() {
             resolve();
         } catch(e) {
             if(e.code === 'ENOENT') {
-                this.replayJSON = Replay.getEmptyReplayObject(this.replayId);
+                this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+                console.log('current time is: ', this.replayJSON.lastCheckpointTime);
                 fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
                     if(err) {
                         Logger.log(LOG_FILE, e);
@@ -559,7 +610,9 @@ Replay.latest = function() {
                     data.replays.map(function (replay) {
                         // Insert into SQL
                         var query = 'INSERT INTO replays (replayId, status) VALUES ("' + replay.SessionName + '", "UNSET")';
-                        conn.query(query);
+                        conn.query(query, function() {
+                            Logger.log(LOG_FILE, 'Inserted ' + replay.SessionName + ' into replays table');
+                        });
                     });
                     resolve(data.replays);
                 }
@@ -586,22 +639,21 @@ Replay.getDamageForPlayer = function(player, allPlayerDamage) {
         damageToHarvesters: player.damageToHarvesters,
         damageToMinions: player.damageToMinions
     };
-    console.log('player damage is: ', playerDamage);
-    allPlayerDamage.some(function(damageData) {
-        console.log('damage data is: ', damageData);
-        if(damageData.username === player.username) {
-            console.log('adding from damage data: ', damageData);
-            console.log('set damage');
-            playerDamage.damageToHeroes += damageData.damageToHeroes;
-            playerDamage.damageToTowers += damageData.damageToTowers;
-            playerDamage.damageToJungle += damageData.damageToJungle;
-            playerDamage.damageToInhibitors += damageData.damageToInhibitors;
-            playerDamage.damageToHarvesters += damageData.damageToHarvesters;
-            playerDamage.damageToMinions += damageData.damageToMinions;
-            return true;
-        }
-        return false;
-    });
+    if(typeof allPlayerDamage[0] !== 'undefined' && allPlayerDamage[0].length > 0) {
+        allPlayerDamage[0].some(function (damageData) {
+            console.log('checking if: ' + damageData.username + ' is equal to: ' + player.username);
+            if (damageData.username === player.username) {
+                playerDamage.damageToHeroes += damageData.damageToHeroes;
+                playerDamage.damageToTowers += damageData.damageToTowers;
+                playerDamage.damageToJungle += damageData.damageToJungle;
+                playerDamage.damageToInhibitors += damageData.damageToInhibitors;
+                playerDamage.damageToHarvesters += damageData.damageToHarvesters;
+                playerDamage.damageToMinions += damageData.damageToMinions;
+                return true;
+            }
+            return false;
+        });
+    }
     return playerDamage;
 };
 
@@ -610,11 +662,11 @@ Replay.getDamageForPlayer = function(player, allPlayerDamage) {
  * Return a object which contains the empty JSON structure for a Replay object
  */
 
-Replay.getEmptyReplayObject = function(replayId) {
+Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
     return {
         replayId: replayId,
-        gameStart: null,
-        lastCheckpointTime: 0,
+        startedAt: null,
+        lastCheckpointTime: checkpointTime,
         newCheckpointTime: 0,
         isLive: true, // pertains to Final / Active
         gameType: null, // get from /replay/{streamId}/users -- if flag_pvp = pvp, flag_coop = bot, flag_custom = custom
@@ -623,6 +675,38 @@ Replay.getEmptyReplayObject = function(replayId) {
         towerKills: [], // {killer: 'bobby', timestamp: '' }   (just do the ?group=towerKills query as killer is in meta
         winningTeam: null
     };
+};
+
+/*
+ * STATIC
+ * Checks if a bot was in the game
+ */
+
+Replay.isBot = function(playerName) {
+    console.log('checking if: ' + playerName + ' is a bot');
+    switch(playerName.toUpperCase()) {
+        case 'BLUE_DEKKER': return true; case 'RED_DEKKER': return true;
+        case 'BLUE_FENG MAO': return true; case 'RED_FENG MAO': return true;
+        case 'BLUE_GRIM': return true; case 'RED_GRIM': return true;
+        case 'BLUE_GADGET': return true; case 'RED_GADGET': return true;
+        case 'BLUE_GIDEON': return true; case 'RED_GIDEON': return true;
+        case 'BLUE_GREYSTONE': return true; case 'RED_GREYSTONE': return true;
+        case 'BLUE_GRUX': return true; case 'RED_GRUX': return true;
+        case 'BLUE_HOWITZER': return true; case 'RED_HOWITZER': return true;
+        case 'BLUE_IGGY': return true; case 'RED_IGGY': return true;
+        case 'BLUE_KALLARI': return true; case 'RED_KALLARI': return true;
+        case 'BLUE_KHAIMERA': return true; case 'RED_KHAIMERA': return true;
+        case 'BLUE_MURDOCK': return true; case 'RED_MURDOCK': return true;
+        case 'BLUE_MURIEL': return true; case 'RED_MURIEL': return true;
+        case 'BLUE_RAMPAGE': return true; case 'RED_RAMPAGE': return true;
+        case 'BLUE_RIKTOR': return true; case 'RED_RIKTOR': return true;
+        case 'BLUE_SEVAROG': return true; case 'RED_SEVAROG': return true;
+        case 'BLUE_SPARROW': return true; case 'RED_SPARROW': return true;
+        case 'BLUE_STEEL': return true; case 'RED_STEEL': return true;
+        case 'BLUE_TWINBLAST': return true; case 'RED_TWINBLAST': return true;
+        case 'BLUE_FEY': return true; case 'RED_FEY': return true;
+        default: return false;
+    }
 };
 
 /*

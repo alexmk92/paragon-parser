@@ -1,5 +1,8 @@
 var Connection = require('./Connection');
 var Replay = require('./Replay');
+var Logger = require('./Logger');
+
+var conn = new Connection();
 
 /*
  * Queue runs and manages the data inside of the mysql collection
@@ -7,28 +10,33 @@ var Replay = require('./Replay');
 
 var Queue = function() {
     this.queue = [];
-    //this.stack = [];
-    this.numItems = 0;
-    //this.isProcessingItem = false;
-    this.items = [
-        { label: 1, completed: false },
-        { label: 2, completed: false },
-        { label: 3, completed: false },
-        { label: 4, completed: false },
-        { label: 5, completed: false },
-        { label: 6, completed: false },
-        { label: 7, completed: false },
-        { label: 8, completed: false },
-        { label: 9, completed: false }
-    ];
+
+    this.maxWorkers = 5;
+    this.currentWorkers = 0;
+    this.scheduledJobs = 0;
+
+    this.workers = [];
 };
 
 /*
- * Removes a specific item from the queue
+ * Removes a specific item from the queue, set its status to completed,
+ * set its reserved to 0,
  */
 
 Queue.prototype.removeItemFromQueue = function(item) {
     console.log("Removing replay: ", item.replayId);
+    var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
+    conn.query(query, function() {
+       Logger.log('./logs/log.txt', 'Updated replays to no longer reference ' + item.replayId);
+    });
+};
+
+/*
+ * Uploads the file and disposes of the current worker
+ */
+
+Queue.prototype.uploadFile = function(item) {
+    
 };
 
 /*
@@ -39,8 +47,6 @@ Queue.prototype.schedule = function(item, ms) {
     console.log("Setting scheduler");
     var scheduledDate = new Date(Date.now() + ms);
     console.log("Scheduling for: ", scheduledDate);
-    
-    
 };
 
 /*
@@ -49,9 +55,58 @@ Queue.prototype.schedule = function(item, ms) {
  */
 
 Queue.prototype.fillBuffer = function() {
-    if(this.items.length === 0) {
-        
-    }
+    // First try to get data from the queue
+    var queueQuery = 'SELECT * FROM queue WHERE reserved = false AND completed = false';
+    conn.query(queueQuery, function(results) {
+        if(results.length === 0) {
+            // Attempt to put new data into the queue
+            var query = 'SELECT replayId FROM replays ' +
+                'WHERE replays.completed = false ' +
+                'LIMIT 10';
+
+            conn.query(query, function(results) {
+                if(results.length > 0) {
+                    results.forEach(function(replay) {
+                        var query = 'INSERT INTO queue (replayId) VALUES("' + replay.replayId + '")';
+                        conn.query(query, function(results) {
+                            Logger.log('./logs/log.txt', replay.replayId + ' is now in the queue');
+                        });
+                    }.bind(this));
+                    this.fillBuffer();
+                } else {
+                    console.log('no jobs for queue, attempting to fill buffer in 10 seconds...');
+                    setTimeout(function() {
+                        this.fillBuffer();
+                    }.bind(this), 10000);
+                }
+            }.bind(this));
+        } else {
+            console.log('processing ' + results.length + ' items');
+            results.forEach(function(result) {
+                this.queue.push(new Replay(result.replayId, this));
+            }.bind(this));
+            this.start();
+        }
+    }.bind(this));
+};
+
+/*
+ * Reserves an item
+ */
+
+Queue.prototype.reserve = function(replay) {
+    // If someone reserves before we do this, then we can bail out
+    var reserved_query = 'UPDATE queue SET reserved = true WHERE replayId = "' + replay.replayId + '" AND reserved = false';
+    conn.query(reserved_query, function(rows) {
+        rows.forEach(function(row) {
+            if(row.changedRows === 0) {
+                console.log('this is reserved');
+            } else {
+                console.log('do the work')
+            }
+        });
+        Logger.log('./logs/log.txt', replay.replayId + ' is now reserved for processing by this queue');
+    });
 };
 
 /*
@@ -59,32 +114,44 @@ Queue.prototype.fillBuffer = function() {
  */
 
 Queue.prototype.start = function() {
+    this.initializeWorkers().then(function() {
+        this.runTasks();
+    }.bind(this));
+};
+
+/*
+ * Runs all tasks on current workers
+ */
+
+Queue.prototype.runTasks = function() {
 
 };
 
 /*
- * Stops running the queue
+ * Initiailizes the workers for the queue
  */
+
+Queue.prototype.initializeWorkers = function() {
+    return new Promise(function(resolve, reject) {
+        for(var i = 0; i < this.maxWorkers; i++) {
+            this.workers.push(this.next());
+            this.currentWorkers++;
+        }
+        resolve();
+    }.bind(this));
+};
 
 /*
  * Gets the next item in the queue
  */
 
 Queue.prototype.next = function() {
-    var currentJob = this.items.shift();
+    var currentJob = this.queue.shift();
     if(currentJob) {
-        currentJob.completed = Math.random() > 0.9;
-        if(!currentJob.completed) {
-            this.items.push(currentJob);
-            var itemString = '';
-            this.items.forEach(function(job) {
-                itemString += 'item #' + job.label + ', ';
-            });
-        } else {
-            console.log('disposing of: ', currentJob.label);
-        }
-    } else {
-        console.log('no jobs left in the queue');
+        return currentJob;
+    }
+    if(!currentJob || this.items.length < 100) {
+        this.fillBuffer();
     }
 };
 

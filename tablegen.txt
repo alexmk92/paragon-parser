@@ -3,6 +3,7 @@ CREATE TABLE replays (
     replayId varchar(50) not null,
     status varchar(25) not null DEFAULT "UNSET",
     checkpointTime int DEFAULT 0,
+    completed bool DEFAULT false,
     primary key (id)
 );
 ALTER TABLE replays ADD UNIQUE KEY `replayId` (`replayId`);
@@ -11,7 +12,7 @@ ALTER TABLE replays ADD UNIQUE KEY `replayId` (`replayId`);
 CREATE TABLE queue (
     id int not null auto_increment,
     replayId varchar(50) not null,
-    attempts int not null,
+    attempts int not null DEFAULT 0,
     reserved bool not null DEFAULT false,
     completed bool not null DEFAULT false,
     priority int not null DEFAULT 0,
@@ -19,6 +20,7 @@ CREATE TABLE queue (
     scheduled TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     primary key (id)
 );
+ALTER TABLE queue ADD UNIQUE KEY `replayId` (`replayId`);
 
 reserved = only one worker can access it if true
 priority =
