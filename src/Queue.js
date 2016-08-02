@@ -58,33 +58,30 @@ Queue.prototype.uploadFile = function(item) {
     var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
     MongoClient.connect(url, function(err, db) {
         assert.equal(null, err);
-        console.log('connected to the server woo!');
+        console.log('connected to the server for uploading!');
         db.collection('replays').update(
             { replayId: item.replayId },
             { $set: item },
             { upsert: true}
         );
-        /*
-        var cursor = db.collection('replays').find( { "replayId" : item.replayId });
-        cursor.each(function(err, doc) {
-           assert.equal(err, null);
-            if(doc !== null) {
-                db.collection('replays').updateOne(
-                    { "replayId" : item.replayId },
-                    { $set: item },
-                    function(err, results) {
-                        console.log('updated mongo record');
-                    }
-                )
-            } else {
-                db.collection('replays').insertOne(item, function(err, result) {
-                    assert.equal(err, null);
-                    console.log('Inserted document into the collection')
-                });
-            }
-        });
-        */
         db.close();
+    });
+};
+
+/*
+ * Tells the queue manager something failed, we retry after 3 seconds
+ */
+
+Queue.prototype.failed = function(item) {
+    this.workers.some(function(worker) {
+       if(worker.replayId === item.replayId) {
+           setTimeout(function() {
+               console.log('attempting to retry processing: ' + item.replayId);
+               worker.parseDataAtCheckpoint();
+           }, 2000);
+           return true;
+       }
+        return false;
     });
 };
 
@@ -103,7 +100,8 @@ Queue.prototype.schedule = function(item, ms) {
                 worker.isRunningOnWorker = false;
                 worker.scheduledTime = scheduledDate;
                 setTimeout(function() {
-                    worker.getNextCheckpoint();
+                    console.log('scheduled time arrived, getting next cp for: ' + worker.replayId);
+                    worker.parseDataAtCheckpoint();
                 }, ms);
             }
         }.bind(this));
@@ -125,8 +123,7 @@ Queue.prototype.fillBuffer = function() {
             // Attempt to put new data into the queue
             var query = 'SELECT replayId, checkpointTime FROM replays ' +
                 'WHERE replays.completed = false ' +
-                'LIMIT 10';
-
+                'LIMIT 200';
 
             conn.query(query, function(results) {
                 if(results.length > 0) {
@@ -152,7 +149,6 @@ Queue.prototype.fillBuffer = function() {
                 console.log('processing ' + results.length + ' items');
                 this.queue = [];
                 results.forEach(function(result) {
-                    console.log('got result: ', result.checkpointTime);
                     this.queue.push(new Replay(result.replayId, results.checkpointTime, this));
                 }.bind(this));
                 this.start();
@@ -179,6 +175,7 @@ Queue.prototype.runTasks = function() {
     if(this.workers.length > 0) {
         this.workers.forEach(function(worker) {
             this.reserve(worker.replayId).then(function() {
+                console.log('trying to parse: ', worker.replayId);
                 if(!this.isRunningOnWorker && new Date().getTime() > worker.scheduledTime) {
                     console.log('running work for: ', worker.replayId);
                     worker.isRunningOnWorker = true;
@@ -258,9 +255,11 @@ Queue.prototype.initializeWorkers = function() {
         var workersToCreate = this.maxWorkers - this.workers.length;
         for(var i = 0; i < workersToCreate; i++) {
             var item = this.next();
-            item.isRunningOnWorker = true;
-            this.workers.push(item);
-            this.currentWorkers++;
+            if(typeof item !== 'undefined' && item !== null) {
+                item.isRunningOnWorker = true;
+                this.workers.push(item);
+                this.currentWorkers++;
+            }
         }
         resolve();
     }.bind(this));
@@ -274,6 +273,8 @@ Queue.prototype.next = function() {
     var currentJob = this.queue.shift();
     if(currentJob) {
         return currentJob;
+    } else {
+        return null;
     }
 };
 

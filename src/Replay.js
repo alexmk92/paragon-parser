@@ -31,24 +31,23 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
     // Get a handle on the old file:
     this.getFileHandle().then(function(file) {
-        console.log('GOT FILE HANDLE :) ');
+        console.log('getting next chunk for: ' + this.replayId);
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
             this.replayJSON.isLive = data.isLive;
             this.replayJSON.startedAt = new Date(data.startedAt);
             // Keep getting the latest check point
-            this.getNextCheckpoint(this.replayJSON.newCheckpointTime, function(checkpoint) {
+            this.getNextCheckpoint(this.replayJSON.newCheckpointTime).then(function(checkpoint) {
                 if(typeof checkpoint.lastCheckpointTime !== 'undefined' && typeof checkpoint.currentCheckpointTime !== 'undefined') {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                console.log('next cp: ', checkpoint);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
                 conn.query(query, function() {
-                    console.log('updated the item');
+                    //console.log('updated the item');
                 });
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
@@ -60,15 +59,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 } else {
                     if(checkpoint.code === 0) {
                         // Update the file with the new streaming data
-                        if(this.replayJSON.players.length === 0) {
-                            console.log('GETTING PLAYERS');
+                        if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
                             this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
                                 this.replayJSON.players = matchInfo.players;
                                 this.replayJSON.gameType = matchInfo.gameType;
                                 this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
                                     this.replayJSON.towerKills = this.replayJSON.towerKills.concat(events.towerKills);
                                     this.replayJSON.kills = this.replayJSON.kills.concat(events.kills);
-                                    console.log('attemptupdate player');
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         this.replayJSON.players = newPlayers;
                                         fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
@@ -102,6 +99,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         }.bind(this));
                     }
                 }
+            }.bind(this)).catch(function(err) {
+                console.log('Error in parseDataAtNextCheckpoint: ', err);
+                this.queueManager.failed(this);
             }.bind(this));
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
@@ -125,13 +125,16 @@ Replay.prototype.getMatchResult = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
 
     return requestify.get(url).then(function(response) {
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('WinningTeam')) {
                 return data['WinningTeam'];
             }
         }
-    });
+    }).catch(function(error) {
+        console.log('Failed in getMatchResult: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -147,12 +150,10 @@ Replay.prototype.getPlayersAndGameType = function() {
             if(payload.code === 0) {
                 if(payload.data.hasOwnProperty('UserDetails')) {
                     // Get the player id's
-                    console.log('has user details');
                     requestify.get(url).then(function(response) {
-                        if (response.body && response.body.length > 0) {
+                        if (typeof response.body !== 'undefined' && response.body.length > 0) {
                             var data = JSON.parse(response.body);
                             if(data.hasOwnProperty('users')) {
-                                console.log('has users, loading them and game type to memory');
                                 var matchDetails = {
                                     players: [],
                                     gameType: null
@@ -239,11 +240,9 @@ Replay.prototype.getPlayersAndGameType = function() {
                                         playersArray.push(player);
                                     }
                                 });
-                                console.log('there are: ' + playersArray.length + ' players, and ' + botsArray.length + ' bots');
                                 // Bind the user ids for each player
                                 playersArray.forEach(function(player, i) {
                                     player.accountId = data.users[i];
-                                    console.log("NEW PLAYER IS: ", player);
                                 });
                                 // Add bots back into array
                                 playersArray = playersArray.concat(botsArray);
@@ -255,6 +254,9 @@ Replay.prototype.getPlayersAndGameType = function() {
                             Logger.log(LOG_FILE, 'No response body for getPlayersAndGameType');
                             reject();
                         }
+                    }.bind(this)).catch(function(error) {
+                        console.log('Failed in getPlayersAndGameType: ', error);
+                        this.queueManager.failed(this);
                     }.bind(this));
                 }
             } else {
@@ -275,7 +277,7 @@ Replay.prototype.updatePlayerStats = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
 
     return requestify.get(url).then(function(response) {
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if(data.hasOwnProperty('UserDetails')) {
                 var startTime = this.replayJSON.lastCheckpointTime;
@@ -291,8 +293,6 @@ Replay.prototype.updatePlayerStats = function() {
                         player.assists = data['UserDetails'][i].Assists;
                         player.heroLevel = data['UserDetails'][i].Level;
 
-                        console.log('player damage is: ', playerDamage);
-
                         player.damageToHeroes = playerDamage.damageToHeroes;
                         player.damageToTowers = playerDamage.damageToTowers;
                         player.damageToMinions = playerDamage.damageToMinions;
@@ -303,11 +303,16 @@ Replay.prototype.updatePlayerStats = function() {
                         return player;
                     }.bind(this));
                     return Promise.all(newPlayers);
-                }.bind(this));
+                }.bind(this), function(err) {
+                    console.log('there was an error, this was a failed attempt');
+                });
             }
         } else {
             Logger.log(LOG_FILE, 'No response body for getPlayersAndGameType');
         }
+    }.bind(this)).catch(function(error) {
+        console.log('Failed in updatePlayerStats: ', error);
+        this.queueManager.failed(this);
     }.bind(this));
 };
 
@@ -315,7 +320,7 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=damage&time1=' + time1 + '&time2=' + time2;
     return requestify.get(url).then(function(response) {
         var allDamage = null;
-        if(response.body && response.body.length > 0) {
+        if(typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if(data.hasOwnProperty('events')) {
                 allDamage = data.events.map(function(damageEvent) {
@@ -326,6 +331,9 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
             }
         }
         return Promise.all(allDamage);
+    }.bind(this)).catch(function(error) {
+        console.log('Failed in getHeroDamageAtCheckpoint: ', error);
+        this.queueManager.failed(this);
     }.bind(this));
 };
 
@@ -339,7 +347,7 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event/' + eventId;
 
     return requestify.get(url).then(function(response) {
-        if(response.body && response.body.length > 0) {
+        if(typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if(data.hasOwnProperty('DamageList')) {
                 var damage = [];
@@ -389,7 +397,10 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
                 Logger.append(LOG_FILE, 'API may have changed, event/{damageId} endpoint did not return a DamageList property.');
             }
         }
-    })
+    }).catch(function(error) {
+        console.log('Failed in getDamageForCheckpointId: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -401,13 +412,16 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
 Replay.prototype.getReplaySummary = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
     return requestify.get(url).then(function (response) {
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             return { code: 0, data: data };
         } else {
             return { code: 1 };
         }
-    });
+    }).catch(function(error) {
+        console.log('Failed in getReplaySummary: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -418,7 +432,6 @@ Replay.prototype.getReplaySummary = function() {
 Replay.prototype.isGameLive = function() {
     return new Promise(function(resolve, reject) {
         var url = REPLAY_URL + '/replay/v2/replay?user=' + this.replayId;
-        console.log("URL IS: " + url);
         requestify.get(url).then(function(response) {
             var body = response.getBody();
             if(body.hasOwnProperty('replays')) {
@@ -427,10 +440,10 @@ Replay.prototype.isGameLive = function() {
                 Logger.append(LOG_FILE, "No replays property on the isGameLive object");
                 reject();
             }
-        }, function(err) {
-            Logger.append(LOG_FILE, "Couldn't find replay: " + err.code);
-            reject(err.code);
-        });
+        }).catch(function(error) {
+            console.log('Failed in getMatchResult: ', error);
+            this.queueManager.failed(this);
+        }.bind(this));
     }.bind(this));
 };
 
@@ -463,7 +476,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=towerKills&time1=' + time1 + '&time2=' + time2;
     requestify.get(url).then(function (response) {
         var events = [];
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('events')) {
                 events = data.events.map(function(event) {
@@ -472,7 +485,10 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
             }
         }
         cb(events);
-    });
+    }).catch(function(error) {
+        console.log('Failed in getTowerKillsAtCheckpoint: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -484,7 +500,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=kills&time1=' + time1 + '&time2=' + time2;
     return requestify.get(url).then(function (response) {
         var events = [];
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('events')) {
                 events = data.events.map(function(event) {
@@ -495,6 +511,9 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
             }
         }
         return Promise.all(events);
+    }.bind(this)).catch(function(error) {
+        console.log('Failed in getHeroKillsAtCheckpoint: ', error);
+        this.queueManager.failed(this);
     }.bind(this));
 };
 
@@ -508,7 +527,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
 Replay.prototype.getDataForHeroKillId = function(id) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event/' + id;
     return requestify.get(url).then(function (response) {
-        if (response.body && response.body.length > 0) {
+        if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('Killer')) {
                 return { killer: data.Killer, killed: data.Killed};
@@ -517,7 +536,10 @@ Replay.prototype.getDataForHeroKillId = function(id) {
                 reject();
             }
         }
-    });
+    }).catch(function(error) {
+        console.log('Failed in getDataForHeroKillId: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -531,10 +553,10 @@ Replay.prototype.getDataForHeroKillId = function(id) {
  * 2 = There was an error, delete this?
  */
 
-Replay.prototype.getNextCheckpoint = function(lastCheckpointTime, cb) {
+Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
     var url = `${REPLAY_URL}/replay/v2/replay/${this.replayId}/event?group=checkpoint`;
 
-    requestify.get(url).then(function(response) {
+    return requestify.get(url).then(function(response) {
         var newCheckpointTime = response.getBody();
         if(newCheckpointTime.hasOwnProperty('events')) {
             newCheckpointTime = newCheckpointTime.events;
@@ -553,17 +575,18 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime, cb) {
             }
 
             if(found) {
-                cb({ code: 0, lastCheckpointTime: lastCheckpointTime, currentCheckpointTime: newCheckpointTime });
+                return({ code: 0, lastCheckpointTime: lastCheckpointTime, currentCheckpointTime: newCheckpointTime });
             } else {
-                cb({ code: 1 });
+                return({ code: 1 });
             }
-            return;
         } else {
             Logger.append('./logs/log.txt', 'events was not a valid key for the checkpoints array');
-            cb({ code: 1 });
-            return;
+            return cb({ code: 1 });
         }
-    });
+    }).catch(function(error) {
+        console.log('Failed in getNextCheckpoint: ', error);
+        this.queueManager.failed(this);
+    }.bind(this));
 };
 
 /*
@@ -574,18 +597,15 @@ Replay.prototype.getFileHandle = function() {
     return new Promise(function(resolve, reject) {
         try {
             this.replayJSON = JSON.parse(fs.readFileSync('./out/replays/' + this.replayId + '.json'));
-            console.log('got file handle from reading file');
             resolve();
         } catch(e) {
             if(e.code === 'ENOENT') {
                 this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                console.log('current time is: ', this.replayJSON.lastCheckpointTime);
                 fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
                     if(err) {
                         Logger.log(LOG_FILE, e);
                         reject(e);
                     } else {
-                        console.log('got file handle from writing file');
                         resolve();
                     }
                 });
@@ -606,11 +626,10 @@ Replay.prototype.getFileHandle = function() {
 
 Replay.latest = function() {
     return new Promise(function(resolve, reject) {
-        console.log("GETTING THEM");
         var url = `${REPLAY_URL}/replay/v2/replay`;
         var data = null;
         requestify.get(url).then(function (response) {
-            if (response.body && response.body.length > 0) {
+            if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
                     data.replays.map(function (replay) {
@@ -626,7 +645,10 @@ Replay.latest = function() {
             } else {
                 reject('The body had no replay data.');
             }
-        });
+        }).catch(function(error) {
+            console.log('Failed in Replay.latest: ', error);
+            this.queueManager.failed(this);
+        }.bind(this));
     });
 };
 
@@ -647,7 +669,6 @@ Replay.getDamageForPlayer = function(player, allPlayerDamage) {
     };
     if(typeof allPlayerDamage[0] !== 'undefined' && allPlayerDamage[0].length > 0) {
         allPlayerDamage[0].some(function (damageData) {
-            console.log('checking if: ' + damageData.username + ' is equal to: ' + player.username);
             if (damageData.username === player.username) {
                 playerDamage.damageToHeroes += damageData.damageToHeroes;
                 playerDamage.damageToTowers += damageData.damageToTowers;
@@ -689,7 +710,6 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
  */
 
 Replay.isBot = function(playerName) {
-    console.log('checking if: ' + playerName + ' is a bot');
     switch(playerName.toUpperCase()) {
         case 'BLUE_DEKKER': return true; case 'RED_DEKKER': return true;
         case 'BLUE_FENG MAO': return true; case 'RED_FENG MAO': return true;
