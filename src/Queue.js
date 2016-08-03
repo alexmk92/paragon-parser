@@ -35,7 +35,7 @@ var Queue = function() {
 
     setInterval(function() {
         this.disposeOfLockedReservedEvents();
-    }.bind(this), 90000);
+    }.bind(this), 100000);
 
 };
 
@@ -44,7 +44,7 @@ var Queue = function() {
  */
 
 Queue.prototype.disposeOfLockedReservedEvents = function() {
-    var query = 'UPDATE queue SET reserved = false WHERE reserved_at < NOW()';
+    var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 2';
     conn.query(query, function() {
         console.log('Disposed of unused events');
     });
@@ -394,7 +394,6 @@ Queue.prototype.stop = function(cb) {
         reservedItems = reservedItems.trim().substr(0, reservedItems.length-2);
 
         var query = 'UPDATE queue SET reserved = false WHERE replayId IN(' + reservedItems + ')';
-        console.log('query: ', query);
         conn.query(query, function() {
             cb();
         });
