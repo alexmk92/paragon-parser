@@ -16,18 +16,38 @@ var conn = new Connection();
 var Queue = function() {
     this.queue = [];
 
-    this.maxWorkers = 3;
+    this.maxWorkers = 10;
+    this.isInitializingWorkers = false;
+    this.isRefreshingBuffer = false;
 
     this.workers = [];
 
     setInterval(function() {
+        console.log('checking if: ' + this.workers.length + ' is less than ' + this.maxWorkers);
         if(this.workers.length < this.maxWorkers) {
-            if(this.queue.length === 0) {
-                console.log('Queue empty, force filling buffer!');
-                this.fillBuffer(true);
-            }
+            this.initializeWorkers().then(function() {
+                this.runTasks();
+            }.bind(this), function(e) {
+                console.log('rejected!', e)
+            });
         }
-    }.bind(this), 10000);
+    }.bind(this), 2500);
+
+    setInterval(function() {
+        this.disposeOfLockedReservedEvents();
+    }.bind(this), 90000);
+
+};
+
+/*
+ * Unbinds all locked events from the Queue
+ */
+
+Queue.prototype.disposeOfLockedReservedEvents = function() {
+    var query = 'UPDATE queue SET reserved = false WHERE reserved_at < NOW()';
+    conn.query(query, function() {
+        console.log('Disposed of unused events');
+    });
 };
 
 /*
@@ -37,12 +57,11 @@ var Queue = function() {
 
 Queue.prototype.removeItemFromQueue = function(item) {
     var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
+    item.isRunningOnQueue = false;
     conn.query(query, function() {
         query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
         conn.query(query, function() {
-            if(!item.isUploading) {
-                this.uploadFile(item);
-            }
+            this.uploadFile(item);
             this.queue.some(function(queueItem, i) {
                 if(queueItem.replayId === item.replayId) {
                     this.queue.splice(i, 1);
@@ -52,9 +71,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
             }.bind(this));
             this.workers.some(function(worker, i) {
                 if(worker.replayId === item.replayId) {
-                    Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
                     this.workers.splice(i, 1);
-                    Logger.append('./logs/workerLength.txt', '\nWorkers length is now ' + this.workers.length);
                     this.initializeWorkers().then(function() {
                         this.runTasks();
                     }.bind(this));
@@ -74,18 +91,20 @@ Queue.prototype.uploadFile = function(item) {
     try {
         MongoClient.connect(url, function(err, db) {
             assert.equal(null, err);
-            console.log('connected to the server for uploading: ' + item.replayJSON.replayId);
-            db.collection('replays').update(
-                { replayId: item.replayJSON.replayId },
-                { $set: item.replayJSON },
-                { upsert: true},
-            function(err, results) {
-                if(err) {
-                    this.failed(item);
-                }
-                item.isUploading = false;
-                db.close();
-            }.bind(this));
+            // get a lock on this specific item
+            if(!item.isUploading) {
+                item.isUploading = true;
+                console.log('connected to the server for uploading: ' + item.replayJSON.replayId);
+                db.collection('replays').update(
+                    { replayId: item.replayJSON.replayId },
+                    { $set: item.replayJSON },
+                    { upsert: true},
+                    function(err, results) {
+                        item.isUploading = false;
+                        db.close();
+                        if(err) this.failed(item);  // check if we need to process the item again
+                }.bind(this));
+            }
         });
     } catch(e) {
         Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
@@ -99,16 +118,18 @@ Queue.prototype.uploadFile = function(item) {
 Queue.prototype.failed = function(item) {
     // only run this once!
     if(!item.failed) {
+        item.isRunningOnQueue = false;
         item.failed = true;
         console.log('ITEM: ' + item.replayId + ' FAILED');
         Logger.append('./logs/failedReplayId.txt', new Date() + ' The replay with id: ' + item.replayId + ' failed');
         var scheduledDate = new Date(Date.now() + 120000);
         item.scheduledTime = scheduledDate;
-        var query = 'UPDATE queue SET reserved = false, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + item.replayId + '"';
+        item.isScheduledInQueue = true;
+        var query = 'UPDATE queue SET attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 3 MINUTE), reserved = false WHERE replayId = "' + item.replayId + '"';
         Logger.append('./logs/log.txt', 'Replay: ' + item.replayId + ' is now scheduled to run at ' + scheduledDate);
         conn.query(query, function(row) {
             if(row.affectedRows !== 0) {
-                query = "UPDATE replays SET completed = false WHERE replayId = '" + item.replayId + "'";
+                query = "UPDATE replays SET completed = false, status = 'UNSET', checkpointTime = '0' WHERE replayId = '" + item.replayId + "'";
                 conn.query(query, function(row) {
                     Logger.append('./logs/log.txt', item.replayId + ' has had its reverted status set back to false.');
                 });
@@ -149,13 +170,13 @@ Queue.prototype.failed = function(item) {
 
 Queue.prototype.schedule = function(item, ms) {
     var scheduledDate = new Date(Date.now() + ms);
+    item.isRunningOnQueue = false;
     item.scheduledTime = scheduledDate;
+    item.isScheduledInQueue = true;
     console.log('scheduled to run at: ', scheduledDate);
     var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3 WHERE replayId="' + item.replayId + '"';
     conn.query(query, function() {
-        if(!item.isUploading) {
-            this.uploadFile(item);
-        }
+        this.uploadFile(item);
         this.workers.some(function(worker, i) {
             if(worker.replayId === item.replayId) {
                 worker.isReserved = false;
@@ -187,15 +208,50 @@ Queue.prototype.fillBuffer = function(forceFill) {
     conn.query(queueQuery, function(results) {
         if(results.length === 0 || forceFill) {
             // Attempt to put new data into the queue
-            var query = 'SELECT replayId, checkpointTime FROM replays ' +
-                'WHERE replays.completed = false ' +
-                'LIMIT 20';
+            var query = 'SELECT replayId, checkpointTime ' +
+                ' FROM replays ' +
+                ' WHERE replays.completed = false ' +
+                ' LIMIT 100';
+
+            var replaysInQueue = '';
+            this.queue.forEach(function(replay) {
+                console.log('replay is: ' + replay);
+                replaysInQueue += '"' + replay.replayId + '", ';
+            });
+            if(replaysInQueue.length > 0) {
+                replaysInQueue = replaysInQueue.substr(0, replaysInQueue.length -2);
+                query = 'SELECT replayId, checkpointTime ' +
+                    ' FROM replays ' +
+                    ' WHERE replays.completed = false ' +
+                    ' AND replayId NOT IN(' + replaysInQueue + ')' +
+                    ' LIMIT 100';
+            }
 
             conn.query(query, function(results) {
                 if(results.length > 0) {
-                    results.forEach(function(replay) {
+                    results.forEach(function(result) {
+                        var replay = new Replay(result.replayId, result.checkpointTime, this);
+                        replay.isScheduledInQueue = false;
+                        replay.isReserved = false;
+                        replay.isUploading = false;
+                        replay.priority = result.priority;
+                        replay.scheduledTime = new Date(result.scheduled);
+                        var found = false;
+                        this.queue.some(function(queueItem) {
+                            found = queueItem.replayId === result.replayId;
+                            return found;
+                        });
+                        if(!found) {
+                            this.queue.push(replay);
+                            if(replay.scheduledTime > new Date()) {
+                                replay.isScheduledInQueue = true;
+                            }
+                        } else {
+                            //console.log('exists in queue');
+                        }
+
                         var query = 'INSERT INTO queue (replayId) VALUES("' + replay.replayId + '")';
-                        conn.query(query, function() { });
+                        conn.query(query, function(row) {});
                     }.bind(this));
                     console.log('attempting to refill the buffer, normally due to all processes being reserved');
                     setTimeout(function() {
@@ -203,9 +259,13 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     }.bind(this), 2500);
                 } else {
                     console.log('no jobs for queue, attempting to fill buffer in 10 seconds...');
-                    setTimeout(function() {
-                        this.fillBuffer(false);
-                    }.bind(this), 10000);
+                    if(!this.isRefreshingBuffer) {
+                        this.isRefreshingBuffer = true;
+                        setTimeout(function() {
+                            this.isRefreshingBuffer = false;
+                            this.fillBuffer(false);
+                        }.bind(this), 10000);
+                    }
                 }
             }.bind(this));
         } else {
@@ -214,21 +274,23 @@ Queue.prototype.fillBuffer = function(forceFill) {
                 //this.queue = [];
                 results.forEach(function(result) {
                     var replay = new Replay(result.replayId, result.checkpointTime, this);
+                    replay.isScheduledInQueue = false;
                     replay.isReserved = false;
                     replay.isUploading = false;
                     replay.priority = result.priority;
                     replay.scheduledTime = new Date(result.scheduled);
-                    console.log('setting scheduled to: ', replay.scheduledTime);
                     var found = false;
                     this.queue.some(function(queueItem) {
                         found = queueItem.replayId === result.replayId;
                         return found;
                     });
                     if(!found) {
-                        console.log('inserting');
                         this.queue.push(replay);
+                        if(replay.scheduledTime > new Date()) {
+                            replay.isScheduledInQueue = true;
+                        }
                     } else {
-                        console.log('exists in queue');
+                        //console.log('exists in queue');
                     }
                 }.bind(this));
                 Logger.append('./logs/queueStatus.txt', 'Queue length is: ' + this.queue.length);
@@ -257,8 +319,8 @@ Queue.prototype.runTasks = function() {
         //console.log('calling run workers');
         this.workers.forEach(function(worker) {
             this.reserve(worker.replayId).then(function() {
-                if(new Date().getTime() > worker.scheduledTime.getTime()) {
-                    console.log('Reserved and running work for: ', worker.replayId);
+                if(new Date().getTime() > worker.scheduledTime.getTime() && worker.isRunningOnQueue === false) {
+                    console.log('Queue now owns this resource, reserved and running work for: ', worker.replayId);
                     worker.isReserved = true;
                     worker.parseDataAtCheckpoint();
                 } else {
@@ -296,10 +358,10 @@ Queue.prototype.reserve = function(replayId) {
                 resolve();
             } else if(row.changedRows === 0) {
                 Logger.append('./logs/log.txt', replayId + ' is reserved by another process.');
-                reject();
+                reject('reserved by another process as rows were 0');
             } else {
                 Logger.append('./logs/log.txt', replayId + ' is reserved by another process.');
-                reject();
+                reject('reserved by another process');
             }
         }.bind(this));
     }.bind(this));
@@ -310,11 +372,9 @@ Queue.prototype.ownsReservedId = function(replayId) {
     this.workers.some(function(worker) {
          if(worker.replayId === replayId) {
              found = true;
-             console.log('you own this reserved id: ', replayId);
          }
         return found;
     });
-    console.log('checking reserve', found);
     return found;
 };
 
@@ -348,7 +408,6 @@ Queue.prototype.stop = function(cb) {
  */
 
 Queue.prototype.sortQueue = function(cb) {
-    console.log('sorting queue');
     this.queue = this.queue.sort(function(a, b) {
         if(a.priority > b.priority) return -1;
         if(a.priority < b.priority) return 1;
@@ -358,31 +417,56 @@ Queue.prototype.sortQueue = function(cb) {
     cb();
 };
 
+Queue.prototype.getScheduledCount = function() {
+    var scheduledCount = 0;
+    this.queue.forEach(function(replay) {
+        if(replay.isScheduledInQueue) scheduledCount += 1;
+    });
+    return scheduledCount;
+};
+
 /*
  * Initiailizes the workers for the queue
  */
 
 Queue.prototype.initializeWorkers = function() {
     return new Promise(function(resolve, reject) {
-        // Now resort the queue
-        this.sortQueue(function() {
-            // In the event we lose workers, we respawn them here, init them here
-            var workersToCreate = this.maxWorkers - this.workers.length;
-            //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
-            if(workersToCreate <= this.maxWorkers) {
-                console.log('spawning ' + workersToCreate + ' workers');
-                for(var i = 0; i < workersToCreate; i++) {
-                    var item = this.next();
-                    if(typeof item !== 'undefined' && item !== null) {
-                        this.workers.push(item);
+        if(!this.isInitializingWorkers) {
+            this.isInitializingWorkers = true;
+            // Now resort the queue
+            this.sortQueue(function() {
+                // In the event we lose workers, we respawn them here, init them here
+                var workersToCreate = this.maxWorkers - this.workers.length;
+                //console.log('creating: ' + workersToCreate + ' workers');
+                //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
+                if(workersToCreate <= this.maxWorkers) {
+                   // console.log('spawning ' + workersToCreate + ' workers');
+                    if(!(this.getScheduledCount() >= this.queue.length)) {
+                        for(var i = 0; i < workersToCreate; i++) {
+                            var item = this.next();
+                            if(typeof item !== 'undefined' && item !== null) {
+                                item.isScheduledInQueue = false;
+                                this.workers.push(item);
+                            }
+                        }
+                    } else {
+                        console.log('refilling buffer as  ' + this.getScheduledCount() + ' is greater than ' + this.queue.length);
+                        // prevent a process out of memory event, this is caused by workers getting fired when queue is holding to many scheduled events
+                        this.fillBuffer(true);
+                        this.isInitializingWorkers = false;
+                        reject('refilling buffer');
                     }
+                    this.isInitializingWorkers = false;
+                    resolve();
+                } else {
+                    this.isInitializingWorkers = false;
+                    reject('couldn\'t create workers as we have to many');
                 }
-                console.log('workers is now: ', this.workers.length);
-                resolve();
-            } else {
-                reject();
-            }
-        }.bind(this));
+            }.bind(this));
+        } else {
+            this.isInitializingWorkers = false;
+            reject('cannot create workers as they have already been initialized');
+        }
     }.bind(this));
 };
 
@@ -396,18 +480,13 @@ Queue.prototype.next = function() {
         this.queue.push(currentJob);
         return currentJob;
     }
-    Logger.append('./logs/log.txt', 'Attempting to find next item in the queue');
-    this.next();
-    /*
-    // All jobs are reserved or in the future, refill the buffer
-    if(this.queue.length === 0 || typeof currentJob === 'undefined' || currentJob === null) {
-        console.log('refilling buffer');
-        Logger.log('./logs/log.txt', 'Refilling buffer, there are no unreserved or present items, but there are ' + this.queue.length + ' items!');
-        this.fillBuffer(true);
-    } else {
 
+    // All jobs are reserved or in the future, refill the buffer
+    if(typeof currentJob === 'undefined' || currentJob === null) {
+        return null;
+    } else {
+        this.next();
     }
-    */
 };
 
 module.exports = Queue;

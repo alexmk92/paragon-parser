@@ -18,6 +18,8 @@ var Replay = function(replayId, checkpointTime, queue) {
     this.scheduledTime = new Date();
     this.replayJSON = null;
     this.checkpointTime = 0;
+    this.isRunningOnQueue = false;
+    this.isScheduledInQueue = false; // flag to determine whether the Queue should increment the schedule property
     this.failed = false;
 
     this.queueManager = queue;
@@ -31,11 +33,16 @@ var Replay = function(replayId, checkpointTime, queue) {
 Replay.prototype.parseDataAtCheckpoint = function() {
 
     if(this.failed || this.scheduledTime.getTime() > new Date().getTime()) {
+        this.isRunningOnQueue = false;
         return;
     }
 
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
+        // We're no longer scheduled, we can now run this
+        this.isScheduledInQueue = false;
+        this.isRunningOnQueue = true;
+        
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
@@ -348,7 +355,6 @@ Replay.prototype.updatePlayerStats = function() {
                     }.bind(this));
                     return Promise.all(newPlayers);
                 }.bind(this), function(err) {
-                    console.log('there was an error, this was a failed attempt');
                     var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                     Logger.append(LOG_FILE, error);
                 }.bind(this));
@@ -655,21 +661,15 @@ Replay.prototype.getFileHandle = function() {
             this.replayJSON = JSON.parse(fs.readFileSync('./out/replays/' + this.replayId + '.json'));
             resolve();
         } catch(e) {
-            if(e.code === 'ENOENT') {
-                this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
-                    if(err) {
-                        Logger.append(LOG_FILE, e);
-                        reject();
-                    } else {
-                        resolve();
-                    }
-                });
-            } else {
-                Logger.append(LOG_FILE, JSON.stringify(e));
-                console.log('rejecting');
-                reject();
-            }
+            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+            fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
+                if(err) {
+                    Logger.append(LOG_FILE, e);
+                    reject();
+                } else {
+                    resolve();
+                }
+            });
         }
     }.bind(this));
 };
