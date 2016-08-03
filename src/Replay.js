@@ -30,11 +30,12 @@ var Replay = function(replayId, checkpointTime, queue) {
 
 Replay.prototype.parseDataAtCheckpoint = function() {
 
-    if(this.failed) return;
+    if(this.failed || this.scheduledTime.getTime() > new Date().getTime()) {
+        return;
+    }
 
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
-        //console.log('getting next chunk for: ' + this.replayId);
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
@@ -58,6 +59,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                 if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
+                    console.log('up to date');
                     this.queueManager.schedule(this, 45000);
                     Logger.append(LOG_FILE, new Date() + ' we are already up to date with the replay: ' + this.replayId + ', reserving this replay in 1 minute');
                 } else {
@@ -67,9 +69,30 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
                                 this.replayJSON.players = matchInfo.players;
                                 this.replayJSON.gameType = matchInfo.gameType;
+
                                 this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                    this.replayJSON.towerKills = this.replayJSON.towerKills.concat(events.towerKills);
-                                    this.replayJSON.kills = this.replayJSON.kills.concat(events.kills);
+                                    events.towerKills.forEach(function(towerKill) {
+                                        var found = false;
+                                        if(this.replayJSON.towerKills.length > 0) {
+                                            this.replayJSON.towerKills.some(function(tk) {
+                                                found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                                return found;
+                                            });
+                                        }
+                                        if(!found) this.replayJSON.towerKills.push(towerKill);
+                                    }.bind(this));
+
+                                    events.kills.forEach(function(kill) {
+                                        var found = false;
+                                        if(this.replayJSON.kills.length > 0) {
+                                            this.replayJSON.kills.some(function(k) {
+                                                found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                                return found;
+                                            });
+                                        }
+                                        if(!found) this.replayJSON.kills.push(kill);
+                                    }.bind(this));
+
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         this.replayJSON.players = newPlayers;
                                         fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
@@ -79,8 +102,27 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             }.bind(this));
                         } else {
                             this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                this.replayJSON.towerKills = this.replayJSON.towerKills.concat(events.towerKills);
-                                this.replayJSON.kills = this.replayJSON.kills.concat(events.kills);
+                                events.towerKills.forEach(function(towerKill) {
+                                    var found = false;
+                                    if(this.replayJSON.towerKills.length > 0) {
+                                        this.replayJSON.towerKills.some(function(tk) {
+                                            found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                            return found;
+                                        });
+                                    }
+                                    if(!found) this.replayJSON.towerKills.push(towerKill);
+                                }.bind(this));
+
+                                events.kills.forEach(function(kill) {
+                                    var found = false;
+                                    if(this.replayJSON.kills.length > 0) {
+                                        this.replayJSON.kills.some(function(k) {
+                                            found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                            return found;
+                                        });
+                                    }
+                                    if(!found) this.replayJSON.kills.push(kill);
+                                }.bind(this));
                                 this.updatePlayerStats().then(function(newPlayers) {
                                     this.replayJSON.players = newPlayers;
                                     fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
@@ -96,7 +138,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 if(err) {
                                     Logger.append(LOG_FILE, err);
                                 } else {
-                                    this.failed = true;
                                     this.queueManager.removeItemFromQueue(this);
                                     Logger.append(LOG_FILE, new Date() + ' finished processing replay: ' + this.replayId);
                                 }
@@ -105,7 +146,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     }
                 }
             }.bind(this)).catch(function(err) {
-                this.failed = true;
                 console.log('Error in parseDataAtNextCheckpoint: ', err);
                 var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
@@ -134,8 +174,6 @@ Replay.prototype.getMatchResult = function() {
             }
         }
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getMatchResult: ', err);
         var error = new Date() + 'Error in getMatchResult: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -260,15 +298,13 @@ Replay.prototype.getPlayersAndGameType = function() {
                             reject();
                         }
                     }.bind(this)).catch(function(err) {
-                        this.failed = true;
-                        console.log('Failed in getPlayersAndGameType: ', err);
                         var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
                         this.queueManager.failed(this);
                     }.bind(this));
                 }
             } else {
-                Logger.log(LOG_FILE, 'No response body for getReplaySummary');
+                Logger.append(LOG_FILE, 'No response body for getReplaySummary');
                 reject();
             }
         }.bind(this));
@@ -312,18 +348,15 @@ Replay.prototype.updatePlayerStats = function() {
                     }.bind(this));
                     return Promise.all(newPlayers);
                 }.bind(this), function(err) {
-                    this.failed = true;
                     console.log('there was an error, this was a failed attempt');
                     var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                     Logger.append(LOG_FILE, error);
                 }.bind(this));
             }
         } else {
-            Logger.log(LOG_FILE, 'No response body for getPlayersAndGameType');
+            Logger.append(LOG_FILE, 'No response body for getPlayersAndGameType');
         }
     }.bind(this)).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in updatePlayerStats: ', err);
         var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -346,8 +379,6 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(allDamage);
     }.bind(this)).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getHeroDamageAtCheckpoint: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -415,11 +446,10 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
             }
         }
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getDamageForCheckpointId: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
+        
     }.bind(this));
 };
 
@@ -439,8 +469,6 @@ Replay.prototype.getReplaySummary = function() {
             return { code: 1 };
         }
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getReplaySummary: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -464,8 +492,6 @@ Replay.prototype.isGameLive = function() {
                 reject();
             }
         }).catch(function(err) {
-            this.failed = true;
-            console.log('Failed in getMatchResult: ', err);
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
@@ -512,8 +538,6 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
         }
         cb(events);
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getTowerKillsAtCheckpoint: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -541,8 +565,6 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(events);
     }.bind(this)).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getHeroKillsAtCheckpoint: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -569,8 +591,6 @@ Replay.prototype.getDataForHeroKillId = function(id) {
             }
         }
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getDataForHeroKillId: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -619,8 +639,6 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
             return cb({ code: 1 });
         }
     }).catch(function(err) {
-        this.failed = true;
-        console.log('Failed in getNextCheckpoint: ', err);
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -685,8 +703,6 @@ Replay.latest = function() {
                 reject('The body had no replay data.');
             }
         }).catch(function(err) {
-            this.failed = true;
-            console.log('Failed in Replay.latest: ', err);
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
