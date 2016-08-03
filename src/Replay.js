@@ -96,6 +96,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 if(err) {
                                     Logger.append(LOG_FILE, err);
                                 } else {
+                                    this.failed = true;
                                     this.queueManager.removeItemFromQueue(this);
                                     Logger.append(LOG_FILE, new Date() + ' finished processing replay: ' + this.replayId);
                                 }
@@ -113,13 +114,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
                 Logger.append(LOG_FILE, "The replay id: " + this.replayId + " has expired.");
-                this.queueManager.removeItemAtIndex(this);
-            }
-            else {
-                /*
-                 fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                 this.parseDataAtCheckpoint();
-                 */
+                this.queueManager.removeItemFromQueue(this);
             }
         }.bind(this));
     }.bind(this));
