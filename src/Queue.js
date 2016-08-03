@@ -4,6 +4,7 @@ var Logger = require('./Logger');
 var MongoClient = require('mongodb').MongoClient;
 var ObjectId = require('mongodb').ObjectID;
 var assert = require('assert');
+var fs = require('fs');
 var config = require('../conf.js');
 
 var conn = new Connection();
@@ -15,8 +16,7 @@ var conn = new Connection();
 var Queue = function() {
     this.queue = [];
 
-    this.maxWorkers = 1;
-    this.currentWorkers = 0;
+    this.maxWorkers = 5;
 
     this.workers = [];
 };
@@ -29,14 +29,15 @@ var Queue = function() {
 Queue.prototype.removeItemFromQueue = function(item) {
     var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
     conn.query(query, function() {
-        query = 'UPDATE queue SET completed=true, reserved=0, priority=0 WHERE replayId="' + item.replayId + '"';
+        query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(item.replayJSON);
             this.workers.some(function(worker) {
                 if(worker.replayId === item.replayId) {
                     worker.isRunningOnWorker = false;
-                    this.workers.splice(this.workers.indexOf(worker));
-                    this.currentWorkers-=1;
+                    Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
+                    this.workers.splice(this.workers.indexOf(worker), 1);
+                    Logger.append('./logs/workerLength.txt', '\nWorkers length is now ' + this.workers.length);
                     this.initializeWorkers().then(function() {
                         this.runTasks();
                     }.bind(this));
@@ -45,7 +46,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
             if(this.queue.length < 50) {
                 this.fillBuffer();
             }
-            Logger.log('./logs/log.txt', 'Updated replays to no longer reference ' + item.replayId);
+            Logger.append('./logs/log.txt', 'Updated replays to no longer reference ' + item.replayId);
         }.bind(this));
     }.bind(this));
 };
@@ -56,16 +57,20 @@ Queue.prototype.removeItemFromQueue = function(item) {
 
 Queue.prototype.uploadFile = function(item) {
     var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
-    MongoClient.connect(url, function(err, db) {
-        assert.equal(null, err);
-        console.log('connected to the server for uploading!');
-        db.collection('replays').update(
-            { replayId: item.replayId },
-            { $set: item },
-            { upsert: true}
-        );
-        db.close();
-    });
+    try {
+        MongoClient.connect(url, function(err, db) {
+            assert.equal(null, err);
+            console.log('connected to the server for uploading!');
+            db.collection('replays').update(
+                { replayId: item.replayId },
+                { $set: item },
+                { upsert: true}
+            );
+            db.close();
+        });
+    } catch(e) {
+        Logger.append('./logs/mongoError.txt', JSON.stringify(e));
+    }
 };
 
 /*
@@ -73,16 +78,39 @@ Queue.prototype.uploadFile = function(item) {
  */
 
 Queue.prototype.failed = function(item) {
+    console.log('ITEM: ' + item.replayId + ' FAILED');
+    Logger.append('./logs/failedReplayId.txt', new Date() + ' The replay with id: ' + item.replayId + ' failed');
+    var scheduledDate = new Date(Date.now() + 60000);
+    var query = 'UPDATE queue SET attempts = attempts + 1, priority = 2, scheduled = "' + scheduledDate + '", reserved = false WHERE replayId = "' + item.replayId + '"';
+    Logger.append('./logs/log.txt', 'Replay: ' + item.replayId + ' is now scheduled to run at ' + scheduledDate);
+    conn.query(query, function(row) {
+        if(row.affectedRows !== 0) {
+            Logger.append('./logs/log.txt', new Date() + ' Item ' + item.replayId + ' failed, incremented its failed attempts and processing it later');
+            fs.stat('./out/replays/' + item.replayId + '.json', function(err, stats) {
+                if(err) Logger.append('./logs/log.txt', new Date() + 'Tried to remove: ' + item.replayId + '.json from the replays directory but it did not exist. ' + JSON.stringify(err));
+                else {
+                    fs.unlink('./out/replays/' + item.replayId + '.json', function(err) {
+                        if(err) Logger.append('./logs/log.txt', new Date() + ' Failed to remove: ' + item.replayId + '.json from the replays directory, it does however exist. ' + JSON.stringify(err));
+                        else {
+                            Logger.append('./logs/log.txt', new Date() + ' Successfully deleted file: ' + item.replayId + '.json from the replays directory, it will be processed again later and its priority has been escalated to 2.');
+                        }
+                    });
+                }
+            });
+        } else {
+            Logger.append('./logs/log.txt', new Date() + ' Failed to update the failure attempt for ' + item.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
+        }
+    });
     this.workers.some(function(worker) {
        if(worker.replayId === item.replayId) {
-           setTimeout(function() {
-               console.log('attempting to retry processing: ' + item.replayId);
-               worker.parseDataAtCheckpoint();
-           }, 2000);
+           worker.isReserved = false;
+           Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
+           this.workers.splice(this.workers.indexOf(worker), 1);
+           Logger.append('./logs/workerLength.txt', '\nWorkers length is now ' + this.workers.length);
            return true;
        }
-        return false;
-    });
+       return false;
+    }.bind(this));
 };
 
 /*
@@ -92,17 +120,30 @@ Queue.prototype.failed = function(item) {
 Queue.prototype.schedule = function(item, ms) {
     var scheduledDate = new Date(Date.now() + ms);
     console.log('scheduled to run at: ', scheduledDate);
-    var query = 'UPDATE queue SET scheduled="' + scheduledDate +  '", priority=1 WHERE replayId="' + item.replayId + '"';
+    var query = 'UPDATE queue SET scheduled="' + scheduledDate +  '", priority=3 WHERE replayId="' + item.replayId + '"';
     conn.query(query, function() {
         this.uploadFile(item.replayJSON);
         this.workers.some(function(worker) {
             if(worker.replayId === item.replayId) {
+                worker.isReserved = false;
+                Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
+                this.workers.splice(this.workers.indexOf(worker), 1);
+                Logger.append('./logs/workerLength.txt', '\nWorkers length is now ' + this.workers.length);
+
+                Logger.append('./logs/log.txt', 'Removed worker ' + worker.replayId + ' from the queue, set priority of 3 to service it asap!');
+                this.initializeWorkers();
+                /*
                 worker.isRunningOnWorker = false;
                 worker.scheduledTime = scheduledDate;
+                Logger.append('./logs/log.txt', 'Setting worker: ' + worker.replayId + ' to idle, spawning another worker on the queue temporarily.');
+                this.maxWorkers++;
+                this.initializeWorkers();
                 setTimeout(function() {
                     console.log('scheduled time arrived, getting next cp for: ' + worker.replayId);
                     worker.parseDataAtCheckpoint();
-                }, ms);
+                    this.maxWorkers--;
+                }.bind(this), ms);
+                */
             }
         }.bind(this));
     }.bind(this));
@@ -117,7 +158,7 @@ Queue.prototype.fillBuffer = function() {
     // First try to get data from the queue
     var queueQuery = 'SELECT queue.replayId, replays.checkpointTime FROM queue' +
                      ' JOIN replays ON replays.replayId = queue.replayId' +
-                     ' WHERE queue.completed = false ORDER BY priority DESC';
+                     ' WHERE queue.completed = false AND queue.attempts < 10 ORDER BY priority DESC';
     conn.query(queueQuery, function(results) {
         if(results.length === 0) {
             // Attempt to put new data into the queue
@@ -129,9 +170,7 @@ Queue.prototype.fillBuffer = function() {
                 if(results.length > 0) {
                     results.forEach(function(replay) {
                         var query = 'INSERT INTO queue (replayId) VALUES("' + replay.replayId + '")';
-                        conn.query(query, function(results) {
-                            Logger.log('./logs/log.txt', replay.replayId + ' is now in the queue');
-                        });
+                        conn.query(query, function() { });
                     }.bind(this));
                     console.log('attempting to refill the buffer, normally due to all processes being reserved');
                     setTimeout(function() {
@@ -149,7 +188,9 @@ Queue.prototype.fillBuffer = function() {
                 console.log('processing ' + results.length + ' items');
                 this.queue = [];
                 results.forEach(function(result) {
-                    this.queue.push(new Replay(result.replayId, results.checkpointTime, this));
+                    var replay = new Replay(result.replayId, results.checkpointTime, this);
+                    replay.isReserved = false;
+                    this.queue.push(replay);
                 }.bind(this));
                 this.start();
             }.bind(this), 1250);
@@ -173,16 +214,21 @@ Queue.prototype.start = function() {
 
 Queue.prototype.runTasks = function() {
     if(this.workers.length > 0) {
+        console.log('calling run workers');
         this.workers.forEach(function(worker) {
             this.reserve(worker.replayId).then(function() {
                 console.log('trying to parse: ', worker.replayId);
                 if(!this.isRunningOnWorker && new Date().getTime() > worker.scheduledTime) {
                     console.log('running work for: ', worker.replayId);
+                    worker.isReserved = true;
                     worker.isRunningOnWorker = true;
                     worker.parseDataAtCheckpoint();
                 }
             }.bind(this), function() {
-                this.workers.splice(this.workers.indexOf(worker));
+                Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
+                this.workers.splice(this.workers.indexOf(worker), 1);
+                Logger.append('./logs/workerLength.txt', '\nWorkers length is now ' + this.workers.length);
+
                 if(this.workers.length === 0) {
                     this.fillBuffer();
                 }
@@ -207,11 +253,12 @@ Queue.prototype.reserve = function(replayId) {
             if(this.ownsReservedId(replayId)) {
                 resolve();
             } else if(row.changedRows === 0) {
+                Logger.append('./logs/log.txt', replayId + ' is reserved by another process.');
                 reject();
             } else {
-                resolve();
+                Logger.append('./logs/log.txt', replayId + ' is reserved by another process.');
+                reject();
             }
-            Logger.log('./logs/log.txt', replayId + ' is now reserved for processing by this queue');
         }.bind(this));
     }.bind(this));
 };
@@ -225,6 +272,7 @@ Queue.prototype.ownsReservedId = function(replayId) {
          }
         return found;
     });
+    console.log('checking reserve', found);
     return found;
 };
 
@@ -237,9 +285,9 @@ Queue.prototype.stop = function() {
         // Release the lock on the resource
         var query = 'UPDATE queue SET reserved = 0 WHERE replayId="' + worker.replayId + '"';
         conn.query(query, function() {
-            console.log('shut down worker: ', worker.replayId);
+            Logger.append('./logs/workerLength.txt', '\nWorkers was length ' + this.workers.length);
             this.workers.splice(this.workers.indexOf(worker), 1);
-            this.currentWorkers-=1;
+            Logger.append('./logs/workerLength.txt', 'Workers length is now ' + this.workers.length);
         }.bind(this));
     }.bind(this));
     console.log('All workers have been shut down');
@@ -256,9 +304,9 @@ Queue.prototype.initializeWorkers = function() {
         for(var i = 0; i < workersToCreate; i++) {
             var item = this.next();
             if(typeof item !== 'undefined' && item !== null) {
+                console.log('got item: ' + item.replayId);
                 item.isRunningOnWorker = true;
                 this.workers.push(item);
-                this.currentWorkers++;
             }
         }
         resolve();
@@ -271,7 +319,7 @@ Queue.prototype.initializeWorkers = function() {
 
 Queue.prototype.next = function() {
     var currentJob = this.queue.shift();
-    if(currentJob) {
+    if(currentJob && !currentJob.isReserved) {
         return currentJob;
     } else {
         return null;
