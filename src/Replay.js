@@ -68,7 +68,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     // Schedule the queue to come back to this item in 1 minute
                     //console.log('up to date');
                     this.queueManager.schedule(this, 45000);
-                    Logger.append(LOG_FILE, new Date() + ' we are already up to date with the replay: ' + this.replayId + ', reserving this replay in 1 minute');
                 } else {
                     if(checkpoint.code === 0) {
                         // Update the file with the new streaming data
@@ -146,7 +145,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     Logger.append(LOG_FILE, err);
                                 } else {
                                     this.queueManager.removeItemFromQueue(this);
-                                    Logger.append(LOG_FILE, new Date() + ' finished processing replay: ' + this.replayId);
                                 }
                             }.bind(this));
                         }.bind(this));
@@ -230,22 +228,22 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     }
                                 }
                                 if(custom && featured) {
-                                    matchDetails.gameType = 'CUSTOM FEATURED';
+                                    matchDetails.gameType = 'private_featured';
                                 }  else if(pvp && custom) {
-                                    matchDetails.gameType = 'CUSTOM PVP';
+                                    matchDetails.gameType = 'private_pvp';
                                 } else if(custom) {
-                                    matchDetails.gameType = 'CUSTOM';
+                                    matchDetails.gameType = 'private';
                                 } else if(pvp && featured) {
-                                    matchDetails.gameType = 'FEATURED PVP';
+                                    matchDetails.gameType = 'featured_pvp';
                                 } else if(featured) {
-                                    matchDetails.gameType = 'FEATURED';
+                                    matchDetails.gameType = 'featured';
                                 } else {
-                                    matchDetails.gameType = 'PVP';
+                                    matchDetails.gameType = 'pvp';
                                 }
                                 if(solo_bot) {
-                                    matchDetails.gameType = 'SOLO AI';
+                                    matchDetails.gameType = 'solo_ai';
                                 } else if(coop_bot) {
-                                    matchDetails.gameType = 'COOP AI';
+                                    matchDetails.gameType = 'coop_ai';
                                 }
 
                                 var playersArray = [];
@@ -300,7 +298,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 resolve(matchDetails);
                             }
                         } else {
-                            Logger.append(LOG_FILE, 'No response body for getPlayersAndGameType');
                             reject();
                         }
                     }.bind(this)).catch(function(err) {
@@ -310,7 +307,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                     }.bind(this));
                 }
             } else {
-                Logger.append(LOG_FILE, 'No response body for getReplaySummary');
                 reject();
             }
         }.bind(this));
@@ -358,8 +354,6 @@ Replay.prototype.updatePlayerStats = function() {
                     Logger.append(LOG_FILE, error);
                 }.bind(this));
             }
-        } else {
-            Logger.append(LOG_FILE, 'No response body for getPlayersAndGameType');
         }
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
