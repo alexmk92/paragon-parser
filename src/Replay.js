@@ -19,8 +19,10 @@ var Replay = function(replayId, checkpointTime, queue) {
     this.replayId = replayId;
     this.scheduledTime = new Date();
     this.replayJSON = null;
+    this.maxCheckpointTime = 0;
     this.checkpointTime = 0;
     this.isRunningOnQueue = false;
+    this.processRequestedMongoHandle = false;
     this.isScheduledInQueue = false; // flag to determine whether the Queue should increment the schedule property
     this.failed = false;
 
@@ -57,6 +59,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
+
+                var liveString = data.isLive ? 'live' : 'not live';
+                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.lastCheckpointTime + '/'.magenta + this.maxCheckpointTime + ' chunks'.magenta);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
@@ -103,7 +108,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         this.replayJSON.players = newPlayers;
-                                        fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
+                                        //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                         this.parseDataAtCheckpoint();
                                     }.bind(this));
                                 }.bind(this));
@@ -133,7 +138,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 }.bind(this));
                                 this.updatePlayerStats().then(function(newPlayers) {
                                     this.replayJSON.players = newPlayers;
-                                    fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
+                                    //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                     this.parseDataAtCheckpoint();
                                 }.bind(this));
                             }.bind(this));
@@ -142,13 +147,16 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         // Its finished lets get the match result
                         this.getMatchResult().then(function(winningTeam) {
                             this.replayJSON.winningTeam = winningTeam;
+                            /*
                             fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
                                 if(err) {
                                     Logger.append(LOG_FILE, err);
                                 } else {
-                                    this.queueManager.removeItemFromQueue(this);
+                                    
                                 }
                             }.bind(this));
+                            */
+                            this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }
                 }
@@ -188,7 +196,7 @@ Replay.prototype.getMatchResult = function() {
 
 /*
  * TYPE: GET
- * EP: /replay/v2/replay/{streamId}/users
+ * EP: /replay/v2/replay/{replayId}/users
  */
 
 Replay.prototype.getPlayersAndGameType = function() {
@@ -610,12 +618,17 @@ Replay.prototype.getDataForHeroKillId = function(id) {
  */
 
 Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
-    var url = `${REPLAY_URL}/replay/v2/replay/${this.replayId}/event?group=checkpoint`;
+    var url = REPLAY_URL + '/replay/v2/replay/' + this.replayId + '/event?group=checkpoint';
 
     return requestify.get(url).then(function(response) {
         var newCheckpointTime = response.getBody();
         if(newCheckpointTime.hasOwnProperty('events')) {
             newCheckpointTime = newCheckpointTime.events;
+
+            // Set the JSON max check time directly
+            this.maxCheckpointTime = newCheckpointTime[newCheckpointTime.length-1]['time1'];
+
+            // Now set our current cp time
             var found = false;
             if(lastCheckpointTime > 0) {
                 newCheckpointTime.some(function(checkpoint) {
@@ -639,7 +652,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
             Logger.append('./logs/log.txt', 'events was not a valid key for the checkpoints array');
             return cb({ code: 1 });
         }
-    }).catch(function(err) {
+    }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
@@ -657,21 +670,31 @@ Replay.prototype.getFileHandle = function() {
             MongoClient.connect(url, function(err, db) {
                 if(err && this.replayJSON === null) {
                     this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+                    if(db !== null) db.close();
                     resolve();
-                } else {
-                    db.collection('matches').find({ replayId: this.replayId }).toArray(function(err, results) {
+                } else if(db !== null) {
+                    db.collection('matches').findOne({ replayId: this.replayId }, function(err, doc) {
                         if(err && this.replayJSON === null) {
                             this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                        } else {
-                            if(results.length === 1) {
-                                this.replayJSON = results[0];
+                        } else if(doc !== null) {
+                            if(doc.replayId === this.replayId) {
+                                this.replayJSON = doc;
                                 delete this.replayJSON['_id'];
                             } else if(this.replayJSON === null) {
                                 this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                             }
+                        } else if(this.replayJSON === null && doc === null) {
+                            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                         }
+                        if(db !== null) db.close();
                         resolve();
                     }.bind(this));
+                } else {
+                    if(this.replayJSON === null) {
+                        this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+                    }
+                    if(db !== null) db.close();
+                    resolve();
                 }
             }.bind(this));
         } catch(e) {
@@ -692,7 +715,7 @@ Replay.prototype.getFileHandle = function() {
 
 Replay.latest = function() {
     return new Promise(function(resolve, reject) {
-        var url = `${REPLAY_URL}/replay/v2/replay`;
+        var url = REPLAY_URL + '/replay/v2/replay';
         var data = null;
         requestify.get(url).then(function (response) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {

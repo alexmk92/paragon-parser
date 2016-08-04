@@ -23,8 +23,8 @@ if(cluster.isWorker) {
     // Handle closing here:
     process.stdin.resume();//so the program will not close instantly
 
-    function exitHandler(options) {
-        if (options.cleanup && !cleaningUp) {
+    function cleanup() {
+        if (!cleaningUp) {
             cleaningUp = true;
             queue.stop(function() {
                 // clean up any processes which were put on queue afterward (need to look at this but
@@ -39,12 +39,15 @@ if(cluster.isWorker) {
     }
 
     //do something when app is closing
-    process.on('exit', exitHandler.bind(null,{cleanup:true}));
+    process.on('exit', cleanup);
 
     //catches ctrl+c event
-    process.on('SIGINT', exitHandler.bind(null, {cleanup:true}));
+    process.on('SIGINT', cleanup);
 
     //catches uncaught exceptions
-    process.on('uncaughtException', exitHandler.bind(null, {cleanup:true}));
+    process.on('uncaughtException', function(err) {
+        console.log('UNCAUGHT EXCEPTION: '.red, err);
+        cleanup();
+    });
 }
 

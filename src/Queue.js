@@ -17,8 +17,8 @@ var conn = new Connection();
 var Queue = function() {
     this.queue = [];
 
-    this.maxWorkers = 35;
-    this.isRefreshingBuffer = false;
+    this.maxWorkers = 40;
+    this.isInitializingWorkers = false;
 
     this.workers = [];
 
@@ -28,7 +28,7 @@ var Queue = function() {
             this.initializeWorkers().then(function() {
                 this.runTasks();
             }.bind(this), function(e) {
-                console.log('rejected!', e.red)
+                process.exit(); // restart on an error
             });
         } else {
             this.runTasks();
@@ -65,9 +65,7 @@ Queue.prototype.isEmptyOrReserved = function() {
         if(scheduledCount >= this.queue.length || reservedCount >= this.queue.length) {
             return true;
         }
-
     }
-
     return false;
 };
 
@@ -101,6 +99,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
                 }
                 return false;
             }.bind(this));
+            /*
             fs.stat('./out/replays/' + item.replayId + '.json', function(err, stats) {
                 if(err) {} //Logger.append('./logs/log.txt', new Date() + 'Tried to remove: ' + item.replayId + '.json from the replays directory but it did not exist. ' + JSON.stringify(err));
                 else {
@@ -112,6 +111,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
                     });
                 }
             });
+            */
         }.bind(this));
     }.bind(this));
 };
@@ -145,11 +145,10 @@ Queue.prototype.uploadFile = function(item) {
                 worker.isReserved = false;
                 this.workers.splice(i, 1);
                 console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
-
-                this.initializeWorkers().then(function() {
-                    this.runTasks();
-                }.bind(this));
             }
+        }.bind(this));
+        this.initializeWorkers().then(function() {
+            this.runTasks();
         }.bind(this));
     } catch(e) {
         console.log('Mongo error: '.red, e);
@@ -180,17 +179,6 @@ Queue.prototype.failed = function(item) {
                     //Logger.append('./logs/log.txt', item.replayId + ' has had its reverted status set back to false.');
                 });
                 //Logger.append('./logs/log.txt', new Date() + ' Item ' + item.replayId + ' failed, incremented its failed attempts and processing it later');
-                fs.stat('./out/replays/' + item.replayId + '.json', function(err, stats) {
-                    if(err) {} //Logger.append('./logs/log.txt', new Date() + 'Tried to remove: ' + item.replayId + '.json from the replays directory but it did not exist. ' + JSON.stringify(err));
-                    else {
-                        fs.unlink('./out/replays/' + item.replayId + '.json', function(err) {
-                            if(err) {} //Logger.append('./logs/log.txt', new Date() + ' Failed to remove: ' + item.replayId + '.json from the replays directory, it does however exist. ' + JSON.stringify(err));
-                            else {
-                                Logger.append('./logs/log.txt', new Date() + ' Successfully deleted file: ' + item.replayId + '.json from the replays directory, it will be processed again later and its priority has been escalated to 2.');
-                            }
-                        });
-                    }
-                });
             } else {
                 //Logger.append('./logs/log.txt', new Date() + ' Failed to update the failure attempt for ' + item.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
             }
@@ -204,7 +192,6 @@ Queue.prototype.failed = function(item) {
             }
             return false;
         }.bind(this));
-
         this.initializeWorkers().then(function() {
             this.runTasks();
         }.bind(this));
@@ -512,30 +499,37 @@ Queue.prototype.isItemIsRunningOnAnotherWorker = function(item) {
 
 Queue.prototype.initializeWorkers = function() {
     return new Promise(function(resolve, reject) {
-        // Now resort the queue
-        this.sortQueue(function() {
-            // In the event we lose workers, we respawn them here, init them here
-            var workersToCreate = this.maxWorkers - this.workers.length;
-            //console.log('creating: ' + workersToCreate + ' workers');
-            //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
-            if(workersToCreate <= this.maxWorkers) {
-                console.log('There are '.blue + this.workers.length + ' active workers on the queue, '.blue + (this.maxWorkers - this.workers.length) + ' workers are sleeping.'.blue + ' queue length is: '.blue + this.queue.length);
-                if(!(this.getScheduledCount() >= this.queue.length) || this.workers.length < this.maxWorkers) {
-                    for(var i = 0; i < workersToCreate; i++) {
-                        var item = this.next();
-                        if((typeof item !== 'undefined' && item !== null)) {
-                            item.isScheduledInQueue = false;
-                            this.workers.push(item);
-
-                            console.log('New worker created at index: '.yellow + (this.workers.length - 1) + ' servicing replay: '.yellow + item.replayId);
+        if(!this.isInitializingWorkers) {
+            this.isInitializingWorkers = true;
+            // Now resort the queue
+            this.sortQueue(function() {
+                // In the event we lose workers, we respawn them here, init them here
+                var workersToCreate = this.maxWorkers - this.workers.length;
+                console.log('creating: ' + workersToCreate + ' workers');
+                //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
+                if(workersToCreate <= this.maxWorkers) {
+                    console.log('There are '.blue + this.workers.length + ' active workers on the queue, '.blue + (this.maxWorkers - this.workers.length) + ' workers are sleeping.'.blue + ' queue length is: '.blue + this.queue.length);
+                    if(!(this.getScheduledCount() >= this.queue.length) || this.workers.length < this.maxWorkers) {
+                        for(var i = 0; i < workersToCreate; i++) {
+                            var item = this.next();
+                            if((typeof item !== 'undefined' && item !== null)) {
+                                item.isScheduledInQueue = false;
+                                this.workers.push(item);
+                                console.log('New worker created at index: '.yellow + (this.workers.length - 1) + ' servicing replay: '.yellow + item.replayId);
+                            }
                         }
                     }
+                    this.isInitializingWorkers = false;
+                    resolve();
+                } else {
+                    this.isInitializingWorkers = false;
+                    reject("too many workers");
                 }
-                resolve();
-            } else {
-                reject("too many workers");
-            }
-        }.bind(this));
+            }.bind(this));
+        } else {
+            this.isInitializingWorkers = false;
+            reject('already initializing workers');
+        }
     }.bind(this));
 };
 
