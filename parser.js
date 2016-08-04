@@ -20,7 +20,7 @@ if(cluster.isWorker) {
     var queue = new Queue();
     queue.fillBuffer();
 
-// Handle closing here:
+    // Handle closing here:
     process.stdin.resume();//so the program will not close instantly
 
     function exitHandler(options) {

@@ -144,7 +144,7 @@ Queue.prototype.uploadFile = function(item) {
             if(worker.replayId === item.replayId) {
                 worker.isReserved = false;
                 this.workers.splice(i, 1);
-                console.log('File uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
+                console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
 
                 this.initializeWorkers().then(function() {
                     this.runTasks();
@@ -530,18 +530,10 @@ Queue.prototype.initializeWorkers = function() {
                             console.log('New worker created at index: '.yellow + (this.workers.length - 1) + ' servicing replay: '.yellow + item.replayId);
                         }
                     }
-                } else {
-                    /*
-                    this.isInitializingWorkers = false;
-                    console.log('refilling buffer as  ' + this.getScheduledCount() + ' is greater than ' + this.queue.length);
-                    // prevent a process out of memory event, this is caused by workers getting fired when queue is holding to many scheduled events
-                    this.fillBuffer(true);
-                    reject('refilling buffer');
-                    */
                 }
                 resolve();
             } else {
-                reject('couldn\'t create workers as we have to many');
+                reject("too many workers");
             }
         }.bind(this));
     }.bind(this));

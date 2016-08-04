@@ -1,8 +1,10 @@
 var requestify = require('requestify');
 var http = require('http');
 var fs = require('fs');
+var config = require('../conf.js');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
+var MongoClient = require('mongodb').MongoClient;
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
@@ -650,19 +652,33 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
 
 Replay.prototype.getFileHandle = function() {
     return new Promise(function(resolve, reject) {
+        var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
         try {
-            this.replayJSON = JSON.parse(fs.readFileSync('./out/replays/' + this.replayId + '.json'));
-            resolve();
-        } catch(e) {
-            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-            fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
-                if(err) {
-                    Logger.append(LOG_FILE, e);
-                    reject();
-                } else {
+            MongoClient.connect(url, function(err, db) {
+                if(err && this.replayJSON === null) {
+                    this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                     resolve();
+                } else {
+                    db.collection('matches').find({ replayId: this.replayId }).toArray(function(err, results) {
+                        if(err && this.replayJSON === null) {
+                            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+                        } else {
+                            if(results.length === 1) {
+                                this.replayJSON = results[0];
+                                delete this.replayJSON['_id'];
+                            } else if(this.replayJSON === null) {
+                                this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+                            }
+                        }
+                        resolve();
+                    }.bind(this));
                 }
-            });
+            }.bind(this));
+        } catch(e) {
+            if(this.replayJSON === null) {
+                this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+            }
+            resolve();
         }
     }.bind(this));
 };
