@@ -2,6 +2,7 @@ var Queue = require('./src/Queue');
 var Logger = require('./src/Logger');
 var Replay = require('./src/Replay');
 var async = require('async.js');
+var colors = require('colors');
 
 var cleaningUp = false;
 
@@ -19,7 +20,7 @@ function exitHandler(options) {
             // its a temp plaster for now :))
             queue.stop(function() {
                 cleaningUp = false;
-                console.log('all workers have been stopped');
+                console.log('all workers have been stopped'.yellow);
                 process.exit();
             });
         });

@@ -42,7 +42,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         // We're no longer scheduled, we can now run this
         this.isScheduledInQueue = false;
         this.isRunningOnQueue = true;
-        
+
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
@@ -66,7 +66,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                 if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
-                    console.log('up to date');
+                    //console.log('up to date');
                     this.queueManager.schedule(this, 45000);
                     Logger.append(LOG_FILE, new Date() + ' we are already up to date with the replay: ' + this.replayId + ', reserving this replay in 1 minute');
                 } else {
@@ -153,7 +153,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     }
                 }
             }.bind(this)).catch(function(err) {
-                console.log('Error in parseDataAtNextCheckpoint: ', err);
                 var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
                 this.queueManager.failed(this);
