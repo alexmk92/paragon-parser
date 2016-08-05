@@ -100,7 +100,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
                 return false;
             }.bind(this));
         } else {
-            console.log('There was an error: '.red + err.message);
+            console.log('There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
             // Make sure that this item is reset, we cannot process it like this
             item.isUploading = false;
             item.replayJSON = Replay.getEmptyReplayObject();
