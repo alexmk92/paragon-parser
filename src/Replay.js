@@ -65,9 +65,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() {
-                    //console.log('updated the item');
-                });
+                conn.query(query, function() {});
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
 
@@ -734,11 +732,11 @@ Replay.latest = function() {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
                     var VALUES = data.replays.map(function (replay) {
-                        return "'" + replay.SessionName + "'";
+                        return "('" + replay.SessionName + "')";
                     }).join(",");
 
-                    var query = 'INSERT INTO replays (replayId, status) VALUES (' + VALUES + ', "UNSET")';
-                    conn.query(query);
+                    var query = 'INSERT IGNORE INTO replays (replayId) VALUES ' + VALUES;
+                    conn.query(query, function() {});
 
                     resolve(data.replays);
                 }

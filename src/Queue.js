@@ -75,9 +75,7 @@ Queue.prototype.isEmptyOrReserved = function() {
 
 Queue.prototype.disposeOfLockedReservedEvents = function() {
     var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 3';
-    conn.query(query, function() {
-        console.log('Disposed of unused events'.yellow);
-    });
+    conn.query(query, function() {});
 };
 
 /*

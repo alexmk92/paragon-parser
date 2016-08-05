@@ -1,6 +1,7 @@
 var mysql = require('mysql');
 var conf = require('../conf.js');
 var Logger = require('./Logger');
+var colors = require('colors');
 
 var Connection = function() {
     this.pool = mysql.createPool({
@@ -12,23 +13,24 @@ var Connection = function() {
     });
 };
 
-Connection.prototype.query = function(query) {
-    var query = query;
+Connection.prototype.query = function(queryString, callback) {
     this.pool.getConnection(function (err, connection) {
-        console.log(test);
-        console.log(query);
         if(err) {
             Logger.append('./logs/log.txt', err);
-            console.log("connection NOT made");
+            console.log("[MYSQL] Error: Connection NOT made".red);
         }
         if(connection) {
-            console.log("query: " + query);
-            var query = connection.query(query, function(err, rows) {
+            connection.query(queryString, function(err, rows) {
+                if(err) {
+                    Logger.append('./logs/log.txt', err);
+                    console.log("[MYSQL] Error: Query not successful".red);
+                }
+                console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
                 connection.release();
+                callback();
             });
         }
     });
-
 };
 
 module.exports = Connection;

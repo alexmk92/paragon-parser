@@ -6,7 +6,7 @@ var colors = require('colors');
  * Populate the list of replays
  */
 function getLatestReplays() {
-    console.log("Getting replays".cyan);
+    console.log("[SCRAPER] Getting replays".cyan);
     Replay.latest();
 };
 
