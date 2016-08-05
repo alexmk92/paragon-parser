@@ -11,12 +11,12 @@ var conn = new Connection();
  * Queue runs and manages the data inside of the mysql collection
  */
 
-var Queue = function(db) {
-    console.log("NEW QUEUE CREATED");
+var Queue = function(db, workers) {
+    console.log("[QUEUE] Queue manager started".cyan);
     this.mongoconn = db; // If null, couldn't connect
     this.queue = [];
 
-    this.maxWorkers = 2;
+    this.maxWorkers = workers || 2;
     this.isInitializingWorkers = false;
     //this.hasStarted = false;
 

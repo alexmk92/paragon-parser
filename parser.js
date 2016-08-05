@@ -10,11 +10,24 @@ var MongoClient = require('mongodb').MongoClient;
 var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
 var mongodb = null;
 var queue   = null;
+var workers = 1;
+
+// Take command line arguments
+process.argv.some(function (val, index) {
+    if(index == 2) {
+        var param = val.split('=');
+        if (param[0] == '--workers') {
+            workers = param[1];
+            return true;
+        }
+    }
+    return false;
+});
 
 MongoClient.connect(url, function(err, db) {
     mongodb = db;
-
     if(cluster.isMaster) {
+
         cluster.fork();
 
         cluster.on('exit', function(worker, code, signal) {
@@ -26,7 +39,7 @@ MongoClient.connect(url, function(err, db) {
     if(cluster.isWorker) {
         var cleaningUp = false;
 
-        if(!queue) queue = new Queue(mongodb);
+        if(!queue) queue = new Queue(mongodb, workers);
         queue.fillBuffer();
 
         // Handle closing here:
