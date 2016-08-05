@@ -2169,3 +2169,4 @@ Error: ER_WRONG_VALUE_COUNT_ON_ROW: Column count doesn't match value count at ro
 Error: ER_DUP_ENTRY: Duplicate entry '7f8b4d547bc24fae8bfa40244647eabe' for key 'replayId'
 Error: ER_DUP_ENTRY: Duplicate entry 'e48f13d75b754e2b9058a1ca0523b033' for key 'replayId'
 Error: ER_DUP_ENTRY: Duplicate entry 'f270d93c68e24ef4838e8e8f39094893' for key 'replayId'
+Fri Aug 05 2016 19:25:32 GMT+0000 (UTC) The replay with id: 4f7ace656f2c40a79666cbd19a8a40c0 failed, its scheduled to re-run at Fri Aug 05 2016 19:27:32 GMT+0000 (UTC)

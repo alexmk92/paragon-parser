@@ -16,7 +16,7 @@ var Queue = function(db) {
     this.mongoconn = db; // If null, couldn't connect
     this.queue = [];
 
-    this.maxWorkers = 10;
+    this.maxWorkers = 2;
     this.isInitializingWorkers = false;
     //this.hasStarted = false;
 
@@ -130,7 +130,7 @@ Queue.prototype.uploadFile = function(item) {
                 function(err, results) {
                     item.isUploading = false;
                     if(err) this.failed(item);  // check if we need to process the item again
-            });
+            }.bind(this));
         }
         this.workers.some(function(worker, i) {
             if(worker.replayId === item.replayId) {
@@ -143,7 +143,12 @@ Queue.prototype.uploadFile = function(item) {
         //     this.runTasks();
         // }.bind(this));
     } catch(e) {
-        console.log('Mongo error: '.red, e);
+        console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
+
+        // Make sure that this item is reset, we cannot process it like this
+        item.isUploading = false;
+        item.replayJSON = Replay.getEmptyReplayObject();
+        this.failed(item);
         //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
     }
 };
