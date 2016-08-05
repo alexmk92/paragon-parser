@@ -84,12 +84,14 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
  */
 
 Queue.prototype.removeItemFromQueue = function(item) {
-    var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
-    item.isRunningOnQueue = false;
-    conn.query(query, function() {
-        query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
-        conn.query(query, function() {
-            this.uploadFile(item);
+    this.uploadFile(item, function(err) {
+        if(err === null) {
+            var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
+            item.isRunningOnQueue = false;
+            conn.query(query, function() {
+                query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
+                conn.query(query, function() {});
+            }.bind(this));
             this.queue.some(function(queueItem, i) {
                 if(queueItem.replayId === item.replayId) {
                     this.queue.splice(i, 1);
@@ -97,20 +99,13 @@ Queue.prototype.removeItemFromQueue = function(item) {
                 }
                 return false;
             }.bind(this));
-            /*
-            fs.stat('./out/replays/' + item.replayId + '.json', function(err, stats) {
-                if(err) {} //Logger.append('./logs/log.txt', new Date() + 'Tried to remove: ' + item.replayId + '.json from the replays directory but it did not exist. ' + JSON.stringify(err));
-                else {
-                    fs.unlink('./out/replays/' + item.replayId + '.json', function(err) {
-                        if(err) {} //Logger.append('./logs/log.txt', new Date() + ' Failed to remove: ' + item.replayId + '.json from the replays directory, it does however exist. ' + JSON.stringify(err));
-                        else {
-                            Logger.append('./logs/log.txt', new Date() + ' Successfully deleted file: ' + item.replayId + '.json from the replays directory, it will be processed again later and its priority has been escalated to 2.');
-                        }
-                    });
-                }
-            });
-            */
-        }.bind(this));
+        } else {
+            console.log('There was an error: '.red + err.message);
+            // Make sure that this item is reset, we cannot process it like this
+            item.isUploading = false;
+            item.replayJSON = Replay.getEmptyReplayObject();
+            this.failed(item);
+        }
     }.bind(this));
 };
 
@@ -118,7 +113,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
  * Uploads the file and disposes of the current worker
  */
 
-Queue.prototype.uploadFile = function(item) {
+Queue.prototype.uploadFile = function(item, callback) {
     try {
         // get a lock on this specific item
         if(!item.isUploading) {
@@ -129,7 +124,9 @@ Queue.prototype.uploadFile = function(item) {
                 { upsert: true},
                 function(err, results) {
                     item.isUploading = false;
-                    if(err) this.failed(item);  // check if we need to process the item again
+                    if(err) {
+                        callback({ message: 'failed to upload file'});
+                    }
             }.bind(this));
         }
         this.workers.some(function(worker, i) {
@@ -139,16 +136,10 @@ Queue.prototype.uploadFile = function(item) {
                 console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
             }
         }.bind(this));
-        // this.initializeWorkers().then(function() {
-        //     this.runTasks();
-        // }.bind(this));
+        callback(null);
     } catch(e) {
         console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
-
-        // Make sure that this item is reset, we cannot process it like this
-        item.isUploading = false;
-        item.replayJSON = Replay.getEmptyReplayObject();
-        this.failed(item);
+        callback({ message: 'failed to upload' });
         //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
     }
 };
@@ -210,7 +201,7 @@ Queue.prototype.schedule = function(item, ms) {
         // Allow another worker to pick this up and process the full item as they will not know where to start processing from
         query = "UPDATE replays SET checkpointTime = 0 WHERE replayId = '" + item.replayId + "'";
         conn.query(query, function() {});
-        this.uploadFile(item);
+        this.uploadFile(item, function() {});
     }.bind(this));
 };
 
