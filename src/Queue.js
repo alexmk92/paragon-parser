@@ -362,9 +362,9 @@ Queue.prototype.runTasks = function() {
                                 return false;
                             }.bind(this));
                             //Logger.append('./logs/log.txt', 'Removed this worker from the queue, spinning up a new worker');
-                             this.initializeWorkers().then(function() {
-                                this.runTasks();
-                             }.bind(this));
+                             //this.initializeWorkers().then(function() {
+                             //   this.runTasks();
+                             //}.bind(this));
                         }.bind(this));
                     }
                 }.bind(this), function() {

@@ -23,6 +23,7 @@ Connection.prototype.query = function(queryString, callback) {
             connection.query(queryString, function(err, rows) {
                 if(err) {
                     Logger.append('./logs/log.txt', err);
+                    Logger.append('./logs/log.txt', 'QUERYSTRING: ' + queryString);
                     console.log("[MYSQL] Error: Query not successful".red);
                 }
                 if(typeof rows.affectedRows !== "undefined" && rows.affectedRows > 1) {

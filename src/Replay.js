@@ -676,10 +676,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
 
 Replay.prototype.getFileHandle = function() {
     return new Promise(function(resolve, reject) {
-        if(this.replayJSON === null) {
-            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-            resolve();
-        } else if(this.mongoconn !== null) {
+        if(this.mongoconn !== null) {
             this.mongoconn.collection('matches').findOne({ replayId: this.replayId }, function(err, doc) {
                 if(err && this.replayJSON === null) {
                     this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
