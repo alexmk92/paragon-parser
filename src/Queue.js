@@ -88,6 +88,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
         if(err === null) {
             var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
             item.isRunningOnQueue = false;
+            item.isReserved = false;
             conn.query(query, function() {
                 query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
                 conn.query(query, function() {});
@@ -153,7 +154,6 @@ Queue.prototype.uploadFile = function(item, callback) {
 Queue.prototype.failed = function(item) {
     // only run this once!
     if(!item.failed) {
-        item.isRunningOnQueue = false;
         item.failed = true;
         console.log('Replay: '.red + item.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
         var scheduledDate = new Date(Date.now() + 120000);
