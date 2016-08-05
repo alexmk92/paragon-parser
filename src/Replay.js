@@ -1,10 +1,8 @@
 var requestify = require('requestify');
 var http = require('http');
 var fs = require('fs');
-var config = require('../conf.js');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
-var MongoClient = require('mongodb').MongoClient;
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';

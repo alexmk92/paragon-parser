@@ -2,11 +2,8 @@ var Connection = require('./Connection');
 var Replay = require('./Replay');
 var Logger = require('./Logger');
 var colors = require('colors');
-var MongoClient = require('mongodb').MongoClient;
-var ObjectId = require('mongodb').ObjectID;
 var assert = require('assert');
 var fs = require('fs');
-var config = require('../conf.js');
 
 var conn = new Connection();
 
