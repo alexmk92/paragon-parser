@@ -15,7 +15,8 @@ var LOG_FILE = './logs/log.txt';
  * it has one static method called latest which returns a list of replay ids
  */
 
-var Replay = function(replayId, checkpointTime, queue) {
+var Replay = function(db, replayId, checkpointTime, queue) {
+    this.mongoconn = db;
     this.replayId = replayId;
     this.scheduledTime = new Date();
     this.replayJSON = null;
@@ -675,44 +676,33 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
 
 Replay.prototype.getFileHandle = function() {
     return new Promise(function(resolve, reject) {
-        var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
-        try {
-            MongoClient.connect(url, function(err, db) {
+        if(this.replayJSON === null) {
+            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
+            if(db !== null) db.close();
+            resolve();
+        } else if(this.mongoconn !== null) {
+            this.mongoconn.collection('matches').findOne({ replayId: this.replayId }, function(err, doc) {
                 if(err && this.replayJSON === null) {
                     this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                    if(db !== null) db.close();
-                    resolve();
-                } else if(db !== null) {
-                    db.collection('matches').findOne({ replayId: this.replayId }, function(err, doc) {
-                        if(err && this.replayJSON === null) {
-                            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                        } else if(doc !== null) {
-                            if(doc.replayId === this.replayId) {
-                                this.replayJSON = doc;
-                                delete this.replayJSON['_id'];
-                            } else if(this.replayJSON === null) {
-                                this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                            }
-                        } else if(this.replayJSON === null && doc === null) {
-                            this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
-                        }
-                        if(db !== null) db.close();
-                        resolve();
-                    }.bind(this));
-                } else {
-                    if(this.replayJSON === null) {
+                } else if(doc !== null) {
+                    if(doc.replayId === this.replayId) {
+                        this.replayJSON = doc;
+                        delete this.replayJSON['_id'];
+                    } else if(this.replayJSON === null) {
                         this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                     }
-                    if(db !== null) db.close();
-                    resolve();
+                } else if(this.replayJSON === null && doc === null) {
+                    this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                 }
+                resolve();
             }.bind(this));
-        } catch(e) {
+        } else {
             if(this.replayJSON === null) {
                 this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
             }
             resolve();
         }
+
     }.bind(this));
 };
 

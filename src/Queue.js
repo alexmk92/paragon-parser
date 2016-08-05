@@ -14,10 +14,11 @@ var conn = new Connection();
  * Queue runs and manages the data inside of the mysql collection
  */
 
-var Queue = function() {
+var Queue = function(db) {
+    this.mongoconn = db; // If null, couldn't connect
     this.queue = [];
 
-    this.maxWorkers = 100;
+    this.maxWorkers = 2;
     this.isInitializingWorkers = false;
 
     this.workers = [];
@@ -119,25 +120,20 @@ Queue.prototype.removeItemFromQueue = function(item) {
  */
 
 Queue.prototype.uploadFile = function(item) {
-    var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
     try {
-        MongoClient.connect(url, function(err, db) {
-            assert.equal(null, err);
-            // get a lock on this specific item
-            if(!item.isUploading) {
-                item.isUploading = true;
-                console.log('connected to the server for uploading: '.green + item.replayJSON.replayId);
-                db.collection('matches').update(
-                    { replayId: item.replayJSON.replayId },
-                    { $set: item.replayJSON },
-                    { upsert: true},
-                    function(err, results) {
-                        item.isUploading = false;
-                        db.close();
-                        if(err) this.failed(item);  // check if we need to process the item again
-                }.bind(this));
-            }
-        });
+        // get a lock on this specific item
+        if(!item.isUploading) {
+            item.isUploading = true;
+            this.mongoconn.collection('matches').update(
+                { replayId: item.replayJSON.replayId },
+                { $set: item.replayJSON },
+                { upsert: true},
+                function(err, results) {
+                    item.isUploading = false;
+                    db.close();
+                    if(err) this.failed(item);  // check if we need to process the item again
+            });
+        }
         this.workers.some(function(worker, i) {
             if(worker.replayId === item.replayId) {
                 worker.isReserved = false;
@@ -251,7 +247,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
             conn.query(query, function(results) {
                 if(results.length > 0) {
                     results.forEach(function(result) {
-                        var replay = new Replay(result.replayId, result.checkpointTime, this);
+                        var replay = new Replay(this.mongoconn, result.replayId, result.checkpointTime, this);
                         replay.isScheduledInQueue = false;
                         replay.isReserved = false;
                         replay.isUploading = false;
@@ -303,7 +299,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                 console.log('processing '.green + results.length + ' items'.green);
                 //this.queue = [];
                 results.forEach(function(result) {
-                    var replay = new Replay(result.replayId, result.checkpointTime, this);
+                    var replay = new Replay(this.mongoconn, result.replayId, result.checkpointTime, this);
                     replay.isScheduledInQueue = false;
                     replay.isReserved = false;
                     replay.isUploading = false;
@@ -382,9 +378,6 @@ Queue.prototype.runTasks = function() {
                         return false;
                     }.bind(this));
                 }.bind(this));
-            } else {
-                //console.log('worker: ' + worker.replayId + ' is already running.');
-                //console.log('there are: ' + this.workers.length + ' workers');
             }
         }.bind(this));
     }
