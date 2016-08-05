@@ -733,13 +733,13 @@ Replay.latest = function() {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
-                    data.replays.map(function (replay) {
-                        // Insert into SQL
-                        var query = 'INSERT INTO replays (replayId, status) VALUES ("' + replay.SessionName + '", "UNSET")';
-                        conn.query(query, function() {
-                            Logger.append(LOG_FILE, 'Inserted ' + replay.SessionName + ' into replays table');
-                        });
-                    });
+                    var VALUES = data.replays.map(function (replay) {
+                        return "'" + replay.SessionName + "'";
+                    }).join(",");
+
+                    var query = 'INSERT INTO replays (replayId, status) VALUES (' + VALUES + ', "UNSET")';
+                    conn.query(query);
+
                     resolve(data.replays);
                 }
                 reject('0 Replays were on the endpoint');
