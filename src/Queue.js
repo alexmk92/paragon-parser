@@ -126,16 +126,17 @@ Queue.prototype.uploadFile = function(item, callback) {
                     item.isUploading = false;
                     if(err) {
                         callback({ message: 'failed to upload file'});
+                    } else {
+                        this.workers.some(function(worker, i) {
+                            if(worker.replayId === item.replayId) {
+                                worker.isReserved = false;
+                                this.workers.splice(i, 1);
+                                console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
+                            }
+                        }.bind(this));
                     }
             }.bind(this));
         }
-        this.workers.some(function(worker, i) {
-            if(worker.replayId === item.replayId) {
-                worker.isReserved = false;
-                this.workers.splice(i, 1);
-                console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
-            }
-        }.bind(this));
         callback(null);
     } catch(e) {
         console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
