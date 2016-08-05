@@ -15,11 +15,13 @@ var conn = new Connection();
  */
 
 var Queue = function(db) {
+    console.log("NEW QUEUE CREATED");
     this.mongoconn = db; // If null, couldn't connect
     this.queue = [];
 
     this.maxWorkers = 10;
     this.isInitializingWorkers = false;
+    //this.hasStarted = false;
 
     this.workers = [];
 
@@ -140,9 +142,9 @@ Queue.prototype.uploadFile = function(item) {
                 console.log('Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
             }
         }.bind(this));
-        this.initializeWorkers().then(function() {
-            this.runTasks();
-        }.bind(this));
+        // this.initializeWorkers().then(function() {
+        //     this.runTasks();
+        // }.bind(this));
     } catch(e) {
         console.log('Mongo error: '.red, e);
         //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
@@ -185,9 +187,9 @@ Queue.prototype.failed = function(item) {
             }
             return false;
         }.bind(this));
-        this.initializeWorkers().then(function() {
-            this.runTasks();
-        }.bind(this));
+        // this.initializeWorkers().then(function() {
+        //     this.runTasks();
+        // }.bind(this));
     }
 };
 
@@ -287,11 +289,11 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     }
                     */
                 }
-                if(forceFill) {
-                    this.initializeWorkers().then(function() {
-                        this.runTasks();
-                    }.bind(this));
-                }
+                // if(forceFill) {
+                //     this.initializeWorkers().then(function() {
+                //         this.runTasks();
+                //     }.bind(this));
+                // }
             }.bind(this));
         } else {
             setTimeout(function() {
@@ -319,7 +321,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     }
                 }.bind(this));
                 //Logger.append('./logs/queueStatus.txt', 'Queue length is: ' + this.queue.length);
-                this.start();
+                //this.start();
             }.bind(this), 1250);
         }
     }.bind(this));
@@ -329,11 +331,14 @@ Queue.prototype.fillBuffer = function(forceFill) {
  * Starts running the queue
  */
 
-Queue.prototype.start = function() {
-    this.initializeWorkers().then(function() {
-        this.runTasks();
-    }.bind(this));
-};
+// Queue.prototype.start = function() {
+//     if(!this.hasStarted) {
+//         this.hasStarted = true;
+//         this.initializeWorkers().then(function() {
+//             this.runTasks();
+//         }.bind(this));
+//     }
+// };
 
 /*
  * Runs all tasks on current workers
