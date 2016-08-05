@@ -60,11 +60,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 }
 
                 var liveString = data.isLive ? 'live' : 'not live';
-                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.lastCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() {});
+                conn.query(query, function() {
+                    console.log('ran the update replays query successfully'.green);
+                });
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
 
@@ -106,7 +108,20 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         this.replayJSON.players = newPlayers;
                                         //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                                        this.parseDataAtCheckpoint();
+                                        this.mongoconn.collection('matches').update(
+                                            { replayId: this.replayId },
+                                            { $set: this.replayJSON },
+                                            { upsert: true},
+                                            function(err, results) {
+                                                this.isUploading = false;
+                                                if(err) {
+                                                    console.log('failed to update replay: '.red + this.replayId);
+                                                    this.queueManager.failed(this);
+                                                } else {
+                                                    console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
+                                                    this.parseDataAtCheckpoint();
+                                                }
+                                        }.bind(this));
                                     }.bind(this));
                                 }.bind(this));
                             }.bind(this));
@@ -136,7 +151,20 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 this.updatePlayerStats().then(function(newPlayers) {
                                     this.replayJSON.players = newPlayers;
                                     //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                                    this.parseDataAtCheckpoint();
+                                    this.mongoconn.collection('matches').update(
+                                        { replayId: this.replayId },
+                                        { $set: this.replayJSON },
+                                        { upsert: true},
+                                        function(err, results) {
+                                            this.isUploading = false;
+                                            if(err) {
+                                                console.log('failed to update replay: '.red + this.replayId);
+                                                this.queueManager.failed(this);
+                                            } else {
+                                                console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
+                                                this.parseDataAtCheckpoint();
+                                            }
+                                        }.bind(this));
                                 }.bind(this));
                             }.bind(this));
                         }
@@ -144,15 +172,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         // Its finished lets get the match result
                         this.getMatchResult().then(function(winningTeam) {
                             this.replayJSON.winningTeam = winningTeam;
-                            /*
-                            fs.writeFile('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON), function(err) {
-                                if(err) {
-                                    Logger.append(LOG_FILE, err);
-                                } else {
-                                    
-                                }
-                            }.bind(this));
-                            */
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }
@@ -652,13 +671,14 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
             }
 
             if(found) {
+                console.log('new cp time is: '.green, newCheckpointTime);
                 return({ code: 0, lastCheckpointTime: lastCheckpointTime, currentCheckpointTime: newCheckpointTime });
             } else {
                 return({ code: 1 });
             }
         } else {
             Logger.append('./logs/log.txt', 'events was not a valid key for the checkpoints array');
-            return cb({ code: 1 });
+            return({ code: 1 });
         }
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
