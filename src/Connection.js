@@ -25,9 +25,11 @@ Connection.prototype.query = function(queryString, callback) {
                     Logger.append('./logs/log.txt', err);
                     console.log("[MYSQL] Error: Query not successful".red);
                 }
-                console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
+                if(typeof rows.affectedRows !== "undefined" && rows.affectedRows > 1) {
+                    console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
+                }
                 connection.release();
-                callback();
+                callback(rows);
             });
         }
     });
