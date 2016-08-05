@@ -18,7 +18,7 @@ var Queue = function(db) {
     this.mongoconn = db; // If null, couldn't connect
     this.queue = [];
 
-    this.maxWorkers = 2;
+    this.maxWorkers = 10;
     this.isInitializingWorkers = false;
 
     this.workers = [];
@@ -130,7 +130,6 @@ Queue.prototype.uploadFile = function(item) {
                 { upsert: true},
                 function(err, results) {
                     item.isUploading = false;
-                    db.close();
                     if(err) this.failed(item);  // check if we need to process the item again
             });
         }
