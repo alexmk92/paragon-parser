@@ -163,6 +163,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
             }.bind(this)).catch(function(err) {
                 var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
+                this.replayJSON = null;
                 this.queueManager.failed(this);
             }.bind(this));
         }.bind(this), function(httpStatus) {
@@ -190,6 +191,7 @@ Replay.prototype.getMatchResult = function() {
     }).catch(function(err) {
         var error = new Date() + 'Error in getMatchResult: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -313,6 +315,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                     }.bind(this)).catch(function(err) {
                         var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
+                        this.replayJSON = null;
                         this.queueManager.failed(this);
                     }.bind(this));
                 }
@@ -368,6 +371,7 @@ Replay.prototype.updatePlayerStats = function() {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -390,6 +394,7 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -457,6 +462,7 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
         
     }.bind(this));
@@ -480,6 +486,7 @@ Replay.prototype.getReplaySummary = function() {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -503,6 +510,7 @@ Replay.prototype.isGameLive = function() {
         }).catch(function(err) {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
+            this.replayJSON = null;
             this.queueManager.failed(this);
         }.bind(this));
     }.bind(this));
@@ -549,6 +557,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -576,6 +585,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -602,6 +612,7 @@ Replay.prototype.getDataForHeroKillId = function(id) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -655,6 +666,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
+        this.replayJSON = null;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -737,6 +749,7 @@ Replay.latest = function() {
         }).catch(function(err) {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
+            this.replayJSON = null;
             this.queueManager.failed(this);
         }.bind(this));
     });

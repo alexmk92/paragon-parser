@@ -17,7 +17,7 @@ var conn = new Connection();
 var Queue = function() {
     this.queue = [];
 
-    this.maxWorkers = 40;
+    this.maxWorkers = 100;
     this.isInitializingWorkers = false;
 
     this.workers = [];
@@ -505,7 +505,7 @@ Queue.prototype.initializeWorkers = function() {
             this.sortQueue(function() {
                 // In the event we lose workers, we respawn them here, init them here
                 var workersToCreate = this.maxWorkers - this.workers.length;
-                console.log('creating: ' + workersToCreate + ' workers');
+                console.log('Creating: '.green + workersToCreate + ' workers'.green);
                 //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
                 if(workersToCreate <= this.maxWorkers) {
                     console.log('There are '.blue + this.workers.length + ' active workers on the queue, '.blue + (this.maxWorkers - this.workers.length) + ' workers are sleeping.'.blue + ' queue length is: '.blue + this.queue.length);
