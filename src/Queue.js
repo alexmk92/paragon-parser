@@ -103,6 +103,7 @@ Queue.prototype.removeItemFromQueue = function(item) {
             console.log('There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
             // Make sure that this item is reset, we cannot process it like this
             item.isUploading = false;
+            item.isReserved = false;
             item.replayJSON = Replay.getEmptyReplayObject();
             this.failed(item);
         }
@@ -157,6 +158,8 @@ Queue.prototype.failed = function(item) {
         console.log('Replay: '.red + item.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
         var scheduledDate = new Date(Date.now() + 120000);
         item.scheduledTime = scheduledDate;
+        item.isRunningOnQueue = false;
+        item.isReserved = false;
         item.isScheduledInQueue = true;
         Logger.append('./logs/log.txt', new Date() + ' The replay with id: ' + item.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
         var query = 'UPDATE queue SET attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + item.replayId + '"';
@@ -194,6 +197,7 @@ Queue.prototype.failed = function(item) {
 Queue.prototype.schedule = function(item, ms) {
     var scheduledDate = new Date(Date.now() + ms);
     item.isRunningOnQueue = false;
+    item.isReserved = false;
     item.scheduledTime = scheduledDate;
     item.isScheduledInQueue = true;
     console.log('scheduled to run: '.blue + item.replayId + ' at: '.blue, scheduledDate);
