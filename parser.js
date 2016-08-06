@@ -31,7 +31,7 @@ MongoClient.connect(url, function(err, db) {
         cluster.fork();
 
         cluster.on('exit', function(worker, code, signal) {
-            console.log('FORKING A NEW PROCESS'.red);
+            console.log('[PARSER] Something went wrong, forking a new process!'.red);
             cluster.fork();
         });
     }
@@ -53,7 +53,7 @@ MongoClient.connect(url, function(err, db) {
                     // its a temp plaster for now :))
                     queue.stop(function() {
                         cleaningUp = false;
-                        console.log('all workers have been stopped'.yellow);
+                        console.log('[PARSER] All workers were shut down successfully'.yellow);
                         process.exit();
                     });
                 });
@@ -68,7 +68,7 @@ MongoClient.connect(url, function(err, db) {
 
         //catches uncaught exceptions
         process.on('uncaughtException', function(err) {
-            console.log('UNCAUGHT EXCEPTION: '.red, err);
+            console.log('[PARSER] Uncaught Exception: '.red, err);
             cleanup();
         });
     }
