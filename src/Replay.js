@@ -39,7 +39,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
     //console.log('attempts is: ' + this.attempts);
 
     if(this.failed || this.scheduledTime.getTime() > new Date().getTime()) {
-        console.log('uh oh, returning :(')
         this.isRunningOnQueue = false;
         return;
     }
@@ -72,12 +71,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 });
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
-                console.log('checkpoint code was: ' + checkpoint.code);
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
                     if(this.attempts > 5) {
-                        console.log('SEEMS LIKE A DEAD LINK, REMOVING FROM QUEUE FOREVER'.red);
                         this.queueManager.removeDeadReplay(this);
                     } else {
                         this.isReserved = false;
@@ -132,7 +129,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             function(err, results) {
                                                 this.isUploading = false;
                                                 if(err) {
-                                                    console.log('failed to update replay: '.red + this.replayId);
+                                                    console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
                                                     this.isReserved = false;
                                                     this.isRunningOnQueue = false;
                                                     this.queueManager.failed(this);
@@ -177,7 +174,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                         function(err, results) {
                                             this.isUploading = false;
                                             if(err) {
-                                                console.log('failed to update replay: '.red + this.replayId);
+                                                console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
                                                 this.isReserved = false;
                                                 this.isRunningOnQueue = false;
                                                 this.queueManager.failed(this);
