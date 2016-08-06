@@ -6,7 +6,7 @@ var Connection = require('./Connection');
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
-var LOG_FILE = './logs/log.txt';
+var LOG_FILE = '../logs/log.txt';
 
 /*
  * Replay object manages which chunk of data we want to stream from the endpoint
@@ -687,7 +687,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
                 return({ code: 1 });
             }
         } else {
-            Logger.append('./logs/log.txt', 'events was not a valid key for the checkpoints array');
+            Logger.append(LOG_FILE, 'events was not a valid key for the checkpoints array');
             return({ code: 1 });
         }
     }.bind(this)).catch(function(err) {

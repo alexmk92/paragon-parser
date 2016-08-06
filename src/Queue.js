@@ -6,6 +6,7 @@ var assert = require('assert');
 var fs = require('fs');
 
 var conn = new Connection();
+var LOG_FILE = '../logs/log.txt';
 
 /*
  * Queue runs and manages the data inside of the mysql collection
@@ -161,7 +162,7 @@ Queue.prototype.failed = function(item) {
         item.isRunningOnQueue = false;
         item.isReserved = false;
         item.isScheduledInQueue = true;
-        Logger.append('./logs/log.txt', new Date() + ' The replay with id: ' + item.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
+        Logger.append(LOG_FILE, new Date() + ' The replay with id: ' + item.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
         var query = 'UPDATE queue SET attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + item.replayId + '"';
         //Logger.append('./logs/log.txt', 'Replay: ' + item.replayId + ' is now scheduled to run at ' + scheduledDate);
         conn.query(query, function(row) {
@@ -262,36 +263,17 @@ Queue.prototype.fillBuffer = function(forceFill) {
                             if(replay.scheduledTime > new Date()) {
                                 replay.isScheduledInQueue = true;
                             }
-                        } else {
-                            //console.log('exists in queue');
                         }
 
                         var query = 'INSERT INTO queue (replayId) VALUES("' + replay.replayId + '")';
                         conn.query(query, function(row) {});
                     }.bind(this));
-                    /*
-                    console.log('attempting to refill the buffer, normally due to all processes being reserved');
-                    setTimeout(function() {
-                        this.fillBuffer(false);
-                    }.bind(this), 2500);
-                    */
                 } else {
-                    /*
-                    console.log('no jobs for queue, attempting to fill buffer in 10 seconds...');
-                    if(!this.isRefreshingBuffer) {
-                        this.isRefreshingBuffer = true;
-                        setTimeout(function() {
-                            this.isRefreshingBuffer = false;
-                            this.fillBuffer(false);
-                        }.bind(this), 10000);
-                    }
-                    */
+                    console.log('[QUEUE] no jobs for queue, attempting to fill buffer in 10 seconds...'.cyan);
+                    setTimeout(function() {
+                        this.fillBuffer(true);
+                    }.bind(this), 10000);
                 }
-                // if(forceFill) {
-                //     this.initializeWorkers().then(function() {
-                //         this.runTasks();
-                //     }.bind(this));
-                // }
             }.bind(this));
         } else {
             setTimeout(function() {
