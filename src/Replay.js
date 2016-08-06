@@ -6,7 +6,7 @@ var Connection = require('./Connection');
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
-var LOG_FILE = '../logs/log.txt';
+var LOG_FILE = './logs/log.txt';
 
 /*
  * Replay object manages which chunk of data we want to stream from the endpoint
@@ -60,7 +60,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 }
 
                 var liveString = data.isLive ? 'live' : 'not live';
-                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
@@ -681,7 +681,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
             }
 
             if(found) {
-                console.log('new cp time is: '.green, newCheckpointTime);
+                //console.log('new cp time is: '.green, newCheckpointTime);
                 return({ code: 0, lastCheckpointTime: lastCheckpointTime, currentCheckpointTime: newCheckpointTime });
             } else {
                 return({ code: 1 });

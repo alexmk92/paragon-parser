@@ -6,7 +6,7 @@ var assert = require('assert');
 var fs = require('fs');
 
 var conn = new Connection();
-var LOG_FILE = '../logs/log.txt';
+var LOG_FILE = './logs/log.txt';
 
 /*
  * Queue runs and manages the data inside of the mysql collection
@@ -87,6 +87,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 Queue.prototype.removeItemFromQueue = function(item) {
     this.uploadFile(item, function(err) {
         if(err === null) {
+            console.log('[QUEUE] Replay '.green + item.replayId + ' finished processing'.green);
             var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
             item.isRunningOnQueue = false;
             item.isReserved = false;
