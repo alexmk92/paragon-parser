@@ -36,7 +36,7 @@ var Queue = function(db, workers) {
         }
 
         if(this.isEmptyOrReserved()) {
-            console.log('refilling buffer as it was either fully reserved, empty or scheduled'.cyan);
+            console.log('[QUEUE] No jobs for queue, refilling buffer as it was either fully reserved, empty or scheduled'.cyan);
             this.fillBuffer(true);
         }
     }.bind(this), 2500);
@@ -77,6 +77,30 @@ Queue.prototype.isEmptyOrReserved = function() {
 Queue.prototype.disposeOfLockedReservedEvents = function() {
     var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 3';
     conn.query(query, function() {});
+};
+
+/*
+ * It's possible that no data happens in a solo ai or custom game if people
+ * just leave to combat this we just remove it from the queue forever
+ */
+
+Queue.prototype.removeDeadReplay = function(item) {
+    Logger.append('./logs/failedReplays.txt', 'Replay: ' + item.replayId + ' was empty and has been removed from the queue');
+    console.log('[QUEUE] Replay '.red + item.replayId + ' was a dead replay, no events were tracked over 6 minutes, removing from queue.'.red);
+    var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
+    item.isRunningOnQueue = false;
+    item.isReserved = false;
+    conn.query(query, function() {
+        query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
+        conn.query(query, function() {});
+    }.bind(this));
+    this.queue.some(function(queueItem, i) {
+        if(queueItem.replayId === item.replayId) {
+            this.queue.splice(i, 1);
+            return true;
+        }
+        return false;
+    }.bind(this));
 };
 
 /*
@@ -159,9 +183,11 @@ Queue.prototype.failed = function(item) {
         item.failed = true;
         console.log('Replay: '.red + item.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
         var scheduledDate = new Date(Date.now() + 120000);
+        console.log('scheduled for: ', scheduledDate);
         item.scheduledTime = scheduledDate;
         item.isRunningOnQueue = false;
         item.isReserved = false;
+        item.replayJSON = null;
         item.isScheduledInQueue = true;
         Logger.append(LOG_FILE, new Date() + ' The replay with id: ' + item.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
         var query = 'UPDATE queue SET attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + item.replayId + '"';
@@ -186,9 +212,9 @@ Queue.prototype.failed = function(item) {
             }
             return false;
         }.bind(this));
-        // this.initializeWorkers().then(function() {
-        //     this.runTasks();
-        // }.bind(this));
+        this.initializeWorkers().then(function() {
+            this.runTasks();
+        }.bind(this));
     }
 };
 
@@ -219,7 +245,7 @@ Queue.prototype.schedule = function(item, ms) {
 
 Queue.prototype.fillBuffer = function(forceFill) {
     // First try to get data from the queue
-    var queueQuery = 'SELECT queue.replayId, replays.checkpointTime, queue.scheduled, queue.priority ' +
+    var queueQuery = 'SELECT queue.replayId, queue.attempts, replays.checkpointTime, queue.scheduled, queue.priority ' +
                      ' FROM queue' +
                      ' JOIN replays ON replays.replayId = queue.replayId' +
                      ' WHERE queue.completed = false AND queue.attempts < 100 ORDER BY priority DESC';
@@ -227,8 +253,9 @@ Queue.prototype.fillBuffer = function(forceFill) {
     conn.query(queueQuery, function(results) {
         if(results.length === 0 || forceFill) {
             // Attempt to put new data into the queue
-            var query = 'SELECT replayId, checkpointTime ' +
+            var query = 'SELECT replays.replayId, replays.checkpointTime, queue.attempts ' +
                 ' FROM replays ' +
+                ' JOIN queue ON replays.replayId = queue.replayId ' +
                 ' WHERE replays.completed = false ' +
                 ' LIMIT 500';
 
@@ -238,10 +265,11 @@ Queue.prototype.fillBuffer = function(forceFill) {
             });
             if(replaysInQueue.length > 0) {
                 replaysInQueue = replaysInQueue.substr(0, replaysInQueue.length -2);
-                query = 'SELECT replayId, checkpointTime ' +
+                query = 'SELECT replays.replayId, replays.checkpointTime, queue.attempts ' +
                     ' FROM replays ' +
+                    ' JOIN queue ON replays.replayId = queue.replayId ' +
                     ' WHERE replays.completed = false ' +
-                    ' AND replayId NOT IN(' + replaysInQueue + ')' +
+                    ' AND replays.replayId NOT IN(' + replaysInQueue + ')' +
                     ' LIMIT 500';
             }
 
@@ -250,6 +278,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     results.forEach(function(result) {
                         var replay = new Replay(this.mongoconn, result.replayId, result.checkpointTime, this);
                         replay.isScheduledInQueue = false;
+                        replay.attempts = result.attempts;
                         replay.isReserved = false;
                         replay.isUploading = false;
                         replay.priority = result.priority;
@@ -266,14 +295,16 @@ Queue.prototype.fillBuffer = function(forceFill) {
                             }
                         }
 
-                        var query = 'INSERT INTO queue (replayId) VALUES("' + replay.replayId + '")';
+                        var query = 'INSERT IGNORE INTO queue (replayId) VALUES("' + replay.replayId + '")';
                         conn.query(query, function(row) {});
                     }.bind(this));
                 } else {
-                    console.log('[QUEUE] no jobs for queue, attempting to fill buffer in 10 seconds...'.cyan);
+                    /*
+                    console.log('[QUEUE] no jobs for queue, attempting to fill buffer...'.cyan);
                     setTimeout(function() {
-                        this.fillBuffer(true);
-                    }.bind(this), 10000);
+                        this.fillBuffer(false);
+                    }.bind(this), 2500);
+                    */
                 }
             }.bind(this));
         } else {
@@ -283,6 +314,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                 results.forEach(function(result) {
                     var replay = new Replay(this.mongoconn, result.replayId, result.checkpointTime, this);
                     replay.isScheduledInQueue = false;
+                    replay.attempts = result.attempts;
                     replay.isReserved = false;
                     replay.isUploading = false;
                     replay.priority = result.priority;
@@ -347,10 +379,10 @@ Queue.prototype.runTasks = function() {
                                 }
                                 return false;
                             }.bind(this));
-                            //Logger.append('./logs/log.txt', 'Removed this worker from the queue, spinning up a new worker');
-                             //this.initializeWorkers().then(function() {
-                             //   this.runTasks();
-                             //}.bind(this));
+                            Logger.append('./logs/log.txt', 'Removed this worker from the queue, spinning up a new worker');
+                             this.initializeWorkers().then(function() {
+                                this.runTasks();
+                             }.bind(this));
                         }.bind(this));
                     }
                 }.bind(this), function() {
@@ -481,13 +513,26 @@ Queue.prototype.initializeWorkers = function() {
             this.sortQueue(function() {
                 // In the event we lose workers, we respawn them here, init them here
                 var workersToCreate = this.maxWorkers - this.workers.length;
-                console.log('Creating: '.green + workersToCreate + ' workers'.green);
                 //console.log('Can I create: ', workersToCreate + ' workers? current workers is: ' + this.workers.length);
                 if(workersToCreate <= this.maxWorkers) {
                     console.log('There are '.blue + this.workers.length + ' active workers on the queue, '.blue + (this.maxWorkers - this.workers.length) + ' workers are sleeping.'.blue + ' queue length is: '.blue + this.queue.length);
                     if(!(this.getScheduledCount() >= this.queue.length) || this.workers.length < this.maxWorkers) {
+                        console.log('Creating: '.green + workersToCreate + ' workers'.green);
                         for(var i = 0; i < workersToCreate; i++) {
                             var item = this.next();
+                            if(typeof item === 'undefined' || item === null) {
+                                var j = 0;
+                                while(j < this.queue.length) {
+                                    item = this.next();
+                                    if(typeof item !== 'undefined' && item !== null) {
+                                        console.log('got item: ' + item.replayId);
+                                        j = this.queue.length;
+                                    }
+                                    j++;
+                                }
+                            } else {
+                                console.log('item replay was: ' + item.replayId);
+                            }
                             if((typeof item !== 'undefined' && item !== null)) {
                                 item.isScheduledInQueue = false;
                                 this.workers.push(item);
@@ -514,28 +559,18 @@ Queue.prototype.initializeWorkers = function() {
  */
 
 Queue.prototype.next = function() {
-    var currentJob = null;
-    if(this.queue.length === 1) {
-        currentJob = this.queue[0];
-        if(currentJob && !currentJob.isReserved && new Date().getTime() > currentJob.scheduledTime.getTime() && !this.isItemIsRunningOnAnotherWorker(currentJob)) {
-            return currentJob;
-        }
-        return null;
+    var currentJob = this.queue.shift();
+
+    if(typeof currentJob !== 'undefined' && currentJob !== null) {
+        this.queue.push(currentJob);
+    }
+
+    //console.log('checking if: ' + currentJob.replayId + ' can be parsed.', new Date().getTime() > currentJob.scheduledTime.getTime());
+    if(currentJob && !currentJob.isReserved && new Date().getTime() > currentJob.scheduledTime.getTime() && !this.isItemIsRunningOnAnotherWorker(currentJob)) {
+        console.log('returning: ', currentJob.replayId)
+        return currentJob;
     } else {
-        currentJob = this.queue.shift();
-
-        if(currentJob && !currentJob.isReserved && new Date().getTime() > currentJob.scheduledTime.getTime() && !this.isItemIsRunningOnAnotherWorker(currentJob)) {
-            this.queue.push(currentJob);
-            return currentJob;
-        }
-
-        // All jobs are reserved or in the future, refill the buffer
-        if(typeof currentJob === 'undefined' || currentJob === null) {
-            return null;
-        } else {
-            this.queue.push(currentJob);
-            this.next();
-        }
+        return null;
     }
 };
 
