@@ -65,7 +65,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
                 conn.query(query, function() {
-                    console.log('ran the update replays query successfully'.green);
+                    //console.log('ran the update replays query successfully'.green);
                 });
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
@@ -81,6 +81,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
                                 this.replayJSON.players = matchInfo.players;
                                 this.replayJSON.gameType = matchInfo.gameType;
+                                this.replayJSON.isFeatured = matchInfo.isFeatured;
 
                                 this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
                                     events.towerKills.forEach(function(towerKill) {
@@ -118,7 +119,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                     console.log('failed to update replay: '.red + this.replayId);
                                                     this.queueManager.failed(this);
                                                 } else {
-                                                    console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
+                                                    //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
                                                     this.parseDataAtCheckpoint();
                                                 }
                                         }.bind(this));
@@ -161,7 +162,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                 console.log('failed to update replay: '.red + this.replayId);
                                                 this.queueManager.failed(this);
                                             } else {
-                                                console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
+                                                //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
                                                 this.parseDataAtCheckpoint();
                                             }
                                         }.bind(this));
@@ -238,8 +239,8 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 var custom = false;
                                 var featured = false;
                                 var pvp = false;
-                                var solo_bot = false;
-                                var coop_bot = false;
+                                var solo_ai = false;
+                                var coop_ai = false;
 
                                 // Get the game type
                                 for(var j = 0; j < data.users.length; j++) {
@@ -250,11 +251,19 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     } else if(data.users[j].toUpperCase().trim() === 'FLAG_FEATURED') {
                                         featured = true;
                                     } else if(data.users[j].toUpperCase().trim() === 'FLAG_SOLO') {
-                                        solo_bot = true;
+                                        solo_ai = true;
                                     } else if(data.users[j].toUpperCase().trim() === 'FLAG_COOP') {
-                                        coop_bot = true;
+                                        coop_ai = true;
                                     }
                                 }
+
+                                matchDetails.isFeatured = featured;
+                                if(custom) { matchDetails.gameType = 'custom' }
+                                if(pvp) { matchDetails.gameType = 'pvp' }
+                                if(coop_ai) { matchDetails.gameType = 'coop_ai' }
+                                if(solo_ai) { matchDetails.gameType = 'solo_ai' }
+
+                                /*
                                 if(custom && featured) {
                                     matchDetails.gameType = 'private_featured';
                                 }  else if(pvp && custom) {
@@ -273,6 +282,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 } else if(coop_bot) {
                                     matchDetails.gameType = 'coop_ai';
                                 }
+                                */
 
                                 var playersArray = [];
                                 var botsArray = [];
@@ -280,7 +290,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 // Remove bots from master array and store in temp array
                                 payload.data['UserDetails'].forEach(function(user, i) {
                                     var player = Replay.getEmptyPlayerObject();
-                                    if(coop_bot || solo_bot) {
+                                    if(coop_ai || solo_ai) {
                                         if(Replay.isBot(user.Nickname)) {
                                             player.accountId = 'bot';
                                             player.username = payload.data['UserDetails'][i].Nickname;
@@ -798,6 +808,7 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
     return {
         replayId: replayId,
         startedAt: null,
+        isFeatured: false,
         lastCheckpointTime: checkpointTime,
         newCheckpointTime: 0,
         isLive: true, // pertains to Final / Active
