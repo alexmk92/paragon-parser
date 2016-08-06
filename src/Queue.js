@@ -94,6 +94,12 @@ Queue.prototype.removeDeadReplay = function(item) {
         query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
         conn.query(query, function() {});
     }.bind(this));
+    this.workers.some(function(worker, i) {
+        if(worker.replayId === item.replayId) {
+            this.workers.splice(i, 1);
+            return true;
+        }
+    }.bind(this));
     this.queue.some(function(queueItem, i) {
         if(queueItem.replayId === item.replayId) {
             this.queue.splice(i, 1);
@@ -182,7 +188,7 @@ Queue.prototype.failed = function(item) {
     if(!item.failed) {
         item.failed = true;
         console.log('Replay: '.red + item.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
-        var scheduledDate = new Date(Date.now() + 120000);
+        var scheduledDate = new Date(Date.now() + 120000); // 120000
         console.log('scheduled for: ', scheduledDate);
         item.scheduledTime = scheduledDate;
         item.isRunningOnQueue = false;
@@ -517,7 +523,7 @@ Queue.prototype.initializeWorkers = function() {
                 if(workersToCreate <= this.maxWorkers) {
                     console.log('There are '.blue + this.workers.length + ' active workers on the queue, '.blue + (this.maxWorkers - this.workers.length) + ' workers are sleeping.'.blue + ' queue length is: '.blue + this.queue.length);
                     if(!(this.getScheduledCount() >= this.queue.length) || this.workers.length < this.maxWorkers) {
-                        console.log('Creating: '.green + workersToCreate + ' workers'.green);
+                        //console.log('Creating: '.green + workersToCreate + ' workers'.green);
                         for(var i = 0; i < workersToCreate; i++) {
                             var item = this.next();
                             if(typeof item === 'undefined' || item === null) {
@@ -567,7 +573,7 @@ Queue.prototype.next = function() {
 
     //console.log('checking if: ' + currentJob.replayId + ' can be parsed.', new Date().getTime() > currentJob.scheduledTime.getTime());
     if(currentJob && !currentJob.isReserved && new Date().getTime() > currentJob.scheduledTime.getTime() && !this.isItemIsRunningOnAnotherWorker(currentJob)) {
-        console.log('returning: ', currentJob.replayId)
+        currentJob.failed = false; // remove failed flag, we can process this item now
         return currentJob;
     } else {
         return null;

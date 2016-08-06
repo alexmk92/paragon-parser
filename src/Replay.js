@@ -39,6 +39,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
     //console.log('attempts is: ' + this.attempts);
 
     if(this.failed || this.scheduledTime.getTime() > new Date().getTime()) {
+        console.log('uh oh, returning :(')
         this.isRunningOnQueue = false;
         return;
     }
@@ -71,6 +72,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 });
                 //console.log(this.replayJSON.lastCheckpointTime);
                 //console.log(this.replayJSON.currentCheckpointTime);
+                console.log('checkpoint code was: ' + checkpoint.code);
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
