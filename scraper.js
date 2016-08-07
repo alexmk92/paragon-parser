@@ -8,6 +8,7 @@ var colors = require('colors');
 function getLatestReplays() {
     console.log("[SCRAPER] Getting replays".cyan);
     Replay.latest();
+    Replay.latest('custom');
 };
 
 // Start with a single call and then every 10 sec

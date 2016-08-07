@@ -7,6 +7,7 @@ var Connection = require('./Connection');
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
 var LOG_FILE = './logs/log.txt';
+var PGG_HOST = '192.168.10.10';
 
 /*
  * Replay object manages which chunk of data we want to stream from the endpoint
@@ -356,6 +357,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 matchDetails.players = playersArray;
 
                                 // Check for MMR
+                                //console.log('getting players elo');
                                 //this.getPlayerElo(playersArray);
                                 
                                 resolve(matchDetails);
@@ -386,7 +388,8 @@ Replay.prototype.getPlayersAndGameType = function() {
  */
 
 Replay.prototype.getPlayerElo = function(players) {
-    var url = 'paragon.dev/api/v1/parser/getPlayersElo';
+    var url = PGG_HOST + '/api/v1/parser/getPlayersElo';
+    console.log('sending post request to: ' + url);
     return requestify.post(url, players).then(function(response) {
         console.log('RESPONSE IS: ', response);
     });
@@ -809,9 +812,13 @@ Replay.prototype.getFileHandle = function() {
  * each of these replays
  */
 
-Replay.latest = function() {
+Replay.latest = function(flag) {
+    var url = REPLAY_URL + '/replay/v2/replay';
+    if(typeof flag !== 'undefined' && flag !== null) {
+        url += '?user=flag_' + flag;
+    }
+    console.log('[SCRAPER] Scraping url: '.yellow + url);
     return new Promise(function(resolve, reject) {
-        var url = REPLAY_URL + '/replay/v2/replay';
         var data = null;
         requestify.get(url).then(function (response) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
@@ -946,7 +953,7 @@ Replay.getEmptyPlayerObject = function() {
         deaths: 0,
         assists: 0,
         towerLastHits: 0,
-        mmr: null
+        elo: null
     }
 };
 
