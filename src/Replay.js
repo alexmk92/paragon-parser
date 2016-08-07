@@ -835,15 +835,16 @@ Replay.latest = function(flag, live) {
     console.log('[SCRAPER] Scraping url: '.yellow + url);
     return new Promise(function(resolve, reject) {
         var data = null;
+        var isLive = live === 'true' ? 1 : 0;
         requestify.get(url).then(function (response) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
                     var VALUES = data.replays.map(function (replay) {
-                        return "('" + replay.SessionName + "')";
+                        return "('" + replay.SessionName + "', " + isLive + ")";
                     }).join(",");
 
-                    var query = 'INSERT IGNORE INTO replays (replayId) VALUES ' + VALUES;
+                    var query = 'INSERT IGNORE INTO replays (replayId, live) VALUES ' + VALUES;
                     conn.query(query, function() {});
 
                     resolve(data.replays);

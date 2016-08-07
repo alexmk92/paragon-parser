@@ -3,6 +3,7 @@ CREATE TABLE replays (
     replayId varchar(50) not null,
     status varchar(25) not null DEFAULT "UNSET",
     checkpointTime int DEFAULT 0,
+    live bool not null DEFAULT false,
     completed bool DEFAULT false,
     primary key (id)
 );

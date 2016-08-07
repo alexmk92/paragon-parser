@@ -262,6 +262,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                 ' FROM replays ' +
                 ' LEFT JOIN queue ON replays.replayId = queue.replayId ' +
                 ' WHERE replays.completed = false ' +
+                ' ORDER BY replays.live DESC ' +
                 ' LIMIT 500';
 
             var replaysInQueue = '';
@@ -275,11 +276,10 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     ' LEFT JOIN queue ON replays.replayId = queue.replayId ' +
                     ' WHERE replays.completed = false ' +
                     ' AND replays.replayId NOT IN(' + replaysInQueue + ')' +
+                    ' ORDER BY replays.live DESC ' +
                     ' LIMIT 500';
             }
-
-            //console.log('query was: ', query);
-
+            
             conn.query(query, function(results) {
                 if(results.length > 0) {
                     results.forEach(function(result) {
