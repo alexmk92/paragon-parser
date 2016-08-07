@@ -304,12 +304,10 @@ Queue.prototype.fillBuffer = function(forceFill) {
                         conn.query(query, function(row) {});
                     }.bind(this));
                 } else {
-                    /*
                     console.log('[QUEUE] no jobs for queue, attempting to fill buffer...'.cyan);
                     setTimeout(function() {
                         this.fillBuffer(false);
                     }.bind(this), 2500);
-                    */
                 }
             }.bind(this));
         } else {

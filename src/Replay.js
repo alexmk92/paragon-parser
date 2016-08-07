@@ -354,6 +354,9 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 playersArray = playersArray.concat(botsArray);
                                 matchDetails.players = playersArray;
 
+                                // Check for MMR
+                                this.getPlayerElo(playersArray);
+                                
                                 resolve(matchDetails);
                             }
                         } else {
@@ -373,6 +376,19 @@ Replay.prototype.getPlayersAndGameType = function() {
             }
         }.bind(this));
     }.bind(this));
+};
+
+/*
+ * TYPE: POST
+ * EP: /api/v1/parser/getPlayersElo
+ * Params: Array of players
+ */
+
+Replay.prototype.getPlayerElo = function(players) {
+    var url = 'paragon.dev/api/v1/parser/getPlayersElo';
+    return requestify.post(url, players).then(function(response) {
+        console.log('RESPONSE IS: ', response);
+    });
 };
 
 /*
