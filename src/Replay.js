@@ -411,11 +411,25 @@ Replay.prototype.updatePlayerStats = function() {
                     var newPlayers = this.replayJSON.players.map(function(player, i) {
                         var playerDamage = Replay.getDamageForPlayer(player, allPlayerDamage);
 
-                        player.kills = data['UserDetails'][i].HeroLastHits;
-                        player.towerLastHits = data['UserDetails'][i].TowerLastHits;
-                        player.deaths = data['UserDetails'][i].Deaths;
-                        player.assists = data['UserDetails'][i].Assists;
-                        player.heroLevel = data['UserDetails'][i].Level;
+                        if(this.replayJSON.gameType === 'coop_ai' || this.replayJSON.gameType === 'solo_ai') {
+                            var playerData = null;
+                            for(var j = 0; j < data['UserDetails'].length; j++) {
+                                if(player.username === data['UserDetails'][j].Nickname) {
+                                    playerData = data['UserDetails'][j];
+                                }
+                            }
+                            player.kills = playerData.HeroLastHits;
+                            player.towerLastHits = playerData.TowerLastHits;
+                            player.deaths = playerData.Deaths;
+                            player.assists = playerData.Assists;
+                            player.heroLevel = playerData.Level;
+                        } else {
+                            player.kills = data['UserDetails'][i].HeroLastHits;
+                            player.towerLastHits = data['UserDetails'][i].TowerLastHits;
+                            player.deaths = data['UserDetails'][i].Deaths;
+                            player.assists = data['UserDetails'][i].Assists;
+                            player.heroLevel = data['UserDetails'][i].Level;
+                        }
 
                         player.damageToHeroes = playerDamage.damageToHeroes;
                         player.damageToTowers = playerDamage.damageToTowers;

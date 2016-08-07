@@ -309,8 +309,8 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     /*
                     console.log('[QUEUE] no jobs for queue, attempting to fill buffer...'.cyan);
                     setTimeout(function() {
-                        this.fillBuffer(false);
-                    }.bind(this), 2500);
+                        this.fillBuffer();
+                    }.bind(this), 5000);
                     */
                 }
             }.bind(this));
