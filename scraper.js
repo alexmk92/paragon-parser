@@ -14,5 +14,5 @@ function getLatestReplays() {
 getLatestReplays();
 setInterval(function() {
     getLatestReplays();
-}, 10000);
+}, 6000);
 
