@@ -279,7 +279,6 @@ Queue.prototype.fillBuffer = function(forceFill) {
                     ' ORDER BY replays.live DESC ' +
                     ' LIMIT 500';
             }
-            
             conn.query(query, function(results) {
                 if(results.length > 0) {
                     results.forEach(function(result) {
