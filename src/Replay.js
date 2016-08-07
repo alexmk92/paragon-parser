@@ -50,6 +50,11 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         this.isScheduledInQueue = false;
         this.isRunningOnQueue = true;
 
+        if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
+            this.queueManager.removeDeadReplay(this);
+            return;
+        }
+
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
         this.isGameLive().then(function(data) {
@@ -62,8 +67,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                //var liveString = data.isLive ? 'live' : 'not live';
-                //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                var liveString = data.isLive ? 'live' : 'not live';
+                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
@@ -192,6 +197,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         this.getMatchResult().then(function(winningTeam) {
                             this.replayJSON.winningTeam = winningTeam;
                             this.replayJSON.isLive = false;
+                            this.replayJSON.lastCheckpointTime = this.replayJSON.newCheckpointTime;
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }

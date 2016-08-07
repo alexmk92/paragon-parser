@@ -85,8 +85,8 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
  */
 
 Queue.prototype.removeDeadReplay = function(item) {
-    Logger.append('./logs/failedReplays.txt', 'Replay: ' + item.replayId + ' was empty and has been removed from the queue');
-    console.log('[QUEUE] Replay '.red + item.replayId + ' was a dead replay, no events were tracked over 6 minutes, removing from queue.'.red);
+    Logger.append('./logs/failedReplays.txt', 'Replay: ' + item.replayId + ' was either empty or had been processed before and has been removed from the queue');
+    console.log('[QUEUE] Replay '.red + item.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
     var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
     item.isRunningOnQueue = false;
     item.isReserved = false;
