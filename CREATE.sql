@@ -14,11 +14,11 @@ CREATE TABLE queue (
     replayId varchar(50) not null,
     attempts int not null DEFAULT 0,
     reserved bool not null DEFAULT false,
-    reserved_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    reserved_at TIMESTAMP DEFAULT '0000-00-00 00:00:00',
     completed bool not null DEFAULT false,
     priority int not null DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    scheduled TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    scheduled TIMESTAMP DEFAULT '0000-00-00 00:00:00',
     primary key (id)
 );
 ALTER TABLE queue ADD UNIQUE KEY `replayId` (`replayId`);
