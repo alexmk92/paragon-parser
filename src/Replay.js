@@ -190,6 +190,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         // Its finished lets get the match result
                         this.getMatchResult().then(function(winningTeam) {
                             this.replayJSON.winningTeam = winningTeam;
+                            this.replayJSON.isLive = false;
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }
