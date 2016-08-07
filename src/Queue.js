@@ -289,7 +289,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
                         replay.isReserved = false;
                         replay.isUploading = false;
                         replay.priority = result.priority;
-                        replay.scheduledTime = new Date(result.scheduled);
+                        replay.scheduledTime = new Date();
                         var found = false;
                         this.queue.some(function(queueItem) {
                             found = queueItem.replayId === result.replayId;
