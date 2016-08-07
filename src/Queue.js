@@ -260,7 +260,7 @@ Queue.prototype.fillBuffer = function(forceFill) {
             // Attempt to put new data into the queue
             var query = 'SELECT replays.replayId, replays.checkpointTime, queue.attempts ' +
                 ' FROM replays ' +
-                ' JOIN queue ON replays.replayId = queue.replayId ' +
+                ' LEFT JOIN queue ON replays.replayId = queue.replayId ' +
                 ' WHERE replays.completed = false ' +
                 ' LIMIT 500';
 
@@ -272,11 +272,13 @@ Queue.prototype.fillBuffer = function(forceFill) {
                 replaysInQueue = replaysInQueue.substr(0, replaysInQueue.length -2);
                 query = 'SELECT replays.replayId, replays.checkpointTime, queue.attempts ' +
                     ' FROM replays ' +
-                    ' JOIN queue ON replays.replayId = queue.replayId ' +
+                    ' LEFT JOIN queue ON replays.replayId = queue.replayId ' +
                     ' WHERE replays.completed = false ' +
                     ' AND replays.replayId NOT IN(' + replaysInQueue + ')' +
                     ' LIMIT 500';
             }
+
+            //console.log('query was: ', query);
 
             conn.query(query, function(results) {
                 if(results.length > 0) {
@@ -304,10 +306,12 @@ Queue.prototype.fillBuffer = function(forceFill) {
                         conn.query(query, function(row) {});
                     }.bind(this));
                 } else {
+                    /*
                     console.log('[QUEUE] no jobs for queue, attempting to fill buffer...'.cyan);
                     setTimeout(function() {
                         this.fillBuffer(false);
                     }.bind(this), 2500);
+                    */
                 }
             }.bind(this));
         } else {

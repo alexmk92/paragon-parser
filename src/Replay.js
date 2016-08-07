@@ -355,7 +355,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 matchDetails.players = playersArray;
 
                                 // Check for MMR
-                                this.getPlayerElo(playersArray);
+                                //this.getPlayerElo(playersArray);
                                 
                                 resolve(matchDetails);
                             }
