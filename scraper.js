@@ -10,6 +10,8 @@ function getLatestReplays() {
     Replay.latest();
 };
 
+// Start with a single call and then every 10 sec
+getLatestReplays();
 setInterval(function() {
     getLatestReplays();
 }, 10000);
