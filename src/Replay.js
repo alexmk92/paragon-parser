@@ -102,50 +102,50 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 this.replayJSON.gameType = matchInfo.gameType;
                                 this.replayJSON.isFeatured = matchInfo.isFeatured;
 
-                                this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                    events.towerKills.forEach(function(towerKill) {
-                                        var found = false;
-                                        if(this.replayJSON.towerKills.length > 0) {
-                                            this.replayJSON.towerKills.some(function(tk) {
-                                                found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
-                                                return found;
-                                            });
-                                        }
-                                        if(!found) this.replayJSON.towerKills.push(towerKill);
-                                    }.bind(this));
-
-                                    events.kills.forEach(function(kill) {
-                                        var found = false;
-                                        if(this.replayJSON.kills.length > 0) {
-                                            this.replayJSON.kills.some(function(k) {
-                                                found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
-                                                return found;
-                                            });
-                                        }
-                                        if(!found) this.replayJSON.kills.push(kill);
-                                    }.bind(this));
-
-                                    this.updatePlayerStats().then(function(newPlayers) {
-                                        this.replayJSON.players = newPlayers;
-                                        //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                                        this.mongoconn.collection('matches').update(
-                                            { replayId: this.replayId },
-                                            { $set: this.replayJSON },
-                                            { upsert: true},
-                                            function(err, results) {
-                                                this.isUploading = false;
-                                                if(err) {
-                                                    console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                    this.isReserved = false;
-                                                    this.isRunningOnQueue = false;
-                                                    this.queueManager.failed(this);
-                                                } else {
-                                                    //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
-                                                    this.parseDataAtCheckpoint();
-                                                }
-                                        }.bind(this));
-                                    }.bind(this));
-                                }.bind(this));
+                                // this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
+                                //     events.towerKills.forEach(function(towerKill) {
+                                //         var found = false;
+                                //         if(this.replayJSON.towerKills.length > 0) {
+                                //             this.replayJSON.towerKills.some(function(tk) {
+                                //                 found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                //                 return found;
+                                //             });
+                                //         }
+                                //         if(!found) this.replayJSON.towerKills.push(towerKill);
+                                //     }.bind(this));
+                                //
+                                //     events.kills.forEach(function(kill) {
+                                //         var found = false;
+                                //         if(this.replayJSON.kills.length > 0) {
+                                //             this.replayJSON.kills.some(function(k) {
+                                //                 found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                //                 return found;
+                                //             });
+                                //         }
+                                //         if(!found) this.replayJSON.kills.push(kill);
+                                //     }.bind(this));
+                                //
+                                //     this.updatePlayerStats().then(function(newPlayers) {
+                                //         this.replayJSON.players = newPlayers;
+                                //         //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
+                                //         this.mongoconn.collection('matches').update(
+                                //             { replayId: this.replayId },
+                                //             { $set: this.replayJSON },
+                                //             { upsert: true},
+                                //             function(err, results) {
+                                //                 this.isUploading = false;
+                                //                 if(err) {
+                                //                     console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
+                                //                     this.isReserved = false;
+                                //                     this.isRunningOnQueue = false;
+                                //                     this.queueManager.failed(this);
+                                //                 } else {
+                                //                     //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
+                                //                     this.parseDataAtCheckpoint();
+                                //                 }
+                                //         }.bind(this));
+                                //     }.bind(this));
+                                // }.bind(this));
                             }.bind(this));
                         } else {
                             this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
