@@ -52,20 +52,16 @@ var Queue = function(db, workers) {
  */
 
 Queue.prototype.isEmptyOrReserved = function() {
-    if(this.queue.length <= this.maxWorkers) {
-        return true;
-    } else {
-        var scheduledCount = 0;
-        var reservedCount = 0;
-        this.queue.forEach(function(item) {
-            if(item.scheduledTime.getTime() > new Date().getTime()) {
-                scheduledCount++;
-            }
-            if(item.isReserved) reservedCount++;
-        });
-        if(scheduledCount >= this.queue.length || reservedCount >= this.queue.length) {
-            return true;
+    var scheduledCount = 0;
+    var reservedCount = 0;
+    this.queue.forEach(function(item) {
+        if(item.scheduledTime.getTime() > new Date().getTime()) {
+            scheduledCount++;
         }
+        if(item.isReserved) reservedCount++;
+    });
+    if(scheduledCount >= this.queue.length || reservedCount >= this.queue.length) {
+        return true;
     }
     return false;
 };
@@ -305,12 +301,10 @@ Queue.prototype.fillBuffer = function(forceFill) {
                         conn.query(query, function(row) {});
                     }.bind(this));
                 } else {
-                    /*
                     console.log('[QUEUE] no jobs for queue, attempting to fill buffer...'.cyan);
                     setTimeout(function() {
-                        this.fillBuffer();
+                        this.fillBuffer(true);
                     }.bind(this), 5000);
-                    */
                 }
             }.bind(this));
         } else {
@@ -385,10 +379,12 @@ Queue.prototype.runTasks = function() {
                                 }
                                 return false;
                             }.bind(this));
+                            /*
                             Logger.append('./logs/log.txt', 'Removed this worker from the queue, spinning up a new worker');
                              this.initializeWorkers().then(function() {
                                 this.runTasks();
                              }.bind(this));
+                             */
                         }.bind(this));
                     }
                 }.bind(this), function() {
@@ -514,7 +510,7 @@ Queue.prototype.isItemIsRunningOnAnotherWorker = function(item) {
 
 Queue.prototype.initializeWorkers = function() {
     return new Promise(function(resolve, reject) {
-        if(!this.isInitializingWorkers) {
+        if(!this.isInitializingWorkers && this.workers.length < this.maxWorkers) {
             this.isInitializingWorkers = true;
             // Now resort the queue
             this.sortQueue(function() {
