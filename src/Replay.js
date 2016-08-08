@@ -476,7 +476,11 @@ Replay.prototype.updatePlayerStats = function() {
             this.queueManager.failed(this);
         }.bind(this));
     } else {
-        return null;
+        // Caller expects a promise to be returned, resolve with null so we can continue
+        // execution as normal
+        return new Promise(function(resolve, reject) {
+            resolve(null);
+        });
     }
 };
 
