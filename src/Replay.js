@@ -835,7 +835,7 @@ Replay.prototype.getFileHandle = function() {
  * each of these replays
  */
 
-Replay.latest = function(flag, live) {
+Replay.latest = function(flag, live, recordFrom) {
     var url = REPLAY_URL + '/replay/v2/replay';
     if(typeof flag !== 'undefined' && flag !== null) {
         url += '?user=flag_' + flag;
@@ -851,7 +851,6 @@ Replay.latest = function(flag, live) {
     return new Promise(function(resolve, reject) {
         var data = null;
         var isLive = live === 'true' ? 1 : 0;
-        var recordFrom = new Date('August 8, 2016 23:59:59');
         requestify.get(url).then(function (response) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);

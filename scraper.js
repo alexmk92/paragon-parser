@@ -14,15 +14,17 @@ if(cluster.isMaster) {
 }
 
 if(cluster.isWorker) {
-    
+
+    var recordFrom = new Date('August 8, 2016 23:59:59');
+
     function getCustomAndFeaturedReplays() {
-        Replay.latest(null, 'false');
-        Replay.latest('custom', 'false');
-        Replay.latest('featured', 'false');
+        Replay.latest(null, 'false', recordFrom);
+        Replay.latest('custom', 'false', recordFrom);
+        Replay.latest('featured', 'false', recordFrom);
     }
 
     function getLiveReplays() {
-        Replay.latest(null, 'true');
+        Replay.latest(null, 'true', recordFrom);
     }
 
     // Start with a single call and then every 10 sec
