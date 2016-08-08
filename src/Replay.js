@@ -851,18 +851,26 @@ Replay.latest = function(flag, live) {
     return new Promise(function(resolve, reject) {
         var data = null;
         var isLive = live === 'true' ? 1 : 0;
+        var recordFrom = new Date('August 8, 2016 23:59:59');
         requestify.get(url).then(function (response) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
-                    var VALUES = data.replays.map(function (replay) {
-                        return "('" + replay.SessionName + "', " + isLive + ")";
-                    }).join(",");
+                    var VALUES = '';
+                    data.replays.forEach(function (replay) {
+                        if(new Date(replay.Timestamp) >= recordFrom) {
+                            VALUES += "('" + replay.SessionName + "', " + isLive + "), ";
+                        }
+                    });
+                    VALUES = VALUES.substr(0, VALUES.length - 2);
+                    if(VALUES !== '') {
+                        var query = 'INSERT IGNORE INTO replays (replayId, live) VALUES ' + VALUES;
+                        conn.query(query, function() {});
 
-                    var query = 'INSERT IGNORE INTO replays (replayId, live) VALUES ' + VALUES;
-                    conn.query(query, function() {});
-
-                    resolve(data.replays);
+                        resolve(data.replays);
+                    } else {
+                        reject('No valid replays');
+                    }
                 }
                 reject('0 Replays were on the endpoint');
             } else {
