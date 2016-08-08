@@ -102,31 +102,34 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 this.replayJSON.gameType = matchInfo.gameType;
                                 this.replayJSON.isFeatured = matchInfo.isFeatured;
 
-                                // this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                //     events.towerKills.forEach(function(towerKill) {
-                                //         var found = false;
-                                //         if(this.replayJSON.towerKills.length > 0) {
-                                //             this.replayJSON.towerKills.some(function(tk) {
-                                //                 found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
-                                //                 return found;
-                                //             });
-                                //         }
-                                //         if(!found) this.replayJSON.towerKills.push(towerKill);
-                                //     }.bind(this));
-                                //
-                                //     events.kills.forEach(function(kill) {
-                                //         var found = false;
-                                //         if(this.replayJSON.kills.length > 0) {
-                                //             this.replayJSON.kills.some(function(k) {
-                                //                 found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
-                                //                 return found;
-                                //             });
-                                //         }
-                                //         if(!found) this.replayJSON.kills.push(kill);
-                                //     }.bind(this));
-                                //
+                                this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
+                                    if(events.towerKills.length !== 0 || events.kills.length !== 0) {
+                                        events.towerKills.forEach(function(towerKill) {
+                                            var found = false;
+                                            if(this.replayJSON.towerKills.length > 0) {
+                                                this.replayJSON.towerKills.some(function(tk) {
+                                                    found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                                    return found;
+                                                });
+                                            }
+                                            if(!found) this.replayJSON.towerKills.push(towerKill);
+                                        }.bind(this));
+
+                                        events.kills.forEach(function(kill) {
+                                            var found = false;
+                                            if(this.replayJSON.kills.length > 0) {
+                                                this.replayJSON.kills.some(function(k) {
+                                                    found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                                    return found;
+                                                });
+                                            }
+                                            if(!found) this.replayJSON.kills.push(kill);
+                                        }.bind(this));
+                                    }
                                     this.updatePlayerStats().then(function(newPlayers) {
-                                        this.replayJSON.players = newPlayers;
+                                        if(newPlayers !== null) {
+                                            this.replayJSON.players = newPlayers;
+                                        }
                                         //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                         this.mongoconn.collection('matches').update(
                                             { replayId: this.replayId },
@@ -145,33 +148,37 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                 }
                                         }.bind(this));
                                     }.bind(this));
-                                // }.bind(this));
+                                }.bind(this));
                             }.bind(this));
                         } else {
-                            // this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                            //     events.towerKills.forEach(function(towerKill) {
-                            //         var found = false;
-                            //         if(this.replayJSON.towerKills.length > 0) {
-                            //             this.replayJSON.towerKills.some(function(tk) {
-                            //                 found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
-                            //                 return found;
-                            //             });
-                            //         }
-                            //         if(!found) this.replayJSON.towerKills.push(towerKill);
-                            //     }.bind(this));
-                            //
-                            //     events.kills.forEach(function(kill) {
-                            //         var found = false;
-                            //         if(this.replayJSON.kills.length > 0) {
-                            //             this.replayJSON.kills.some(function(k) {
-                            //                 found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
-                            //                 return found;
-                            //             });
-                            //         }
-                            //         if(!found) this.replayJSON.kills.push(kill);
-                            //     }.bind(this));
+                            this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
+                                if(events.towerKills.length !== 0 || events.kills.length !== 0) {
+                                    events.towerKills.forEach(function (towerKill) {
+                                        var found = false;
+                                        if (this.replayJSON.towerKills.length > 0) {
+                                            this.replayJSON.towerKills.some(function (tk) {
+                                                found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                                return found;
+                                            });
+                                        }
+                                        if (!found) this.replayJSON.towerKills.push(towerKill);
+                                    }.bind(this));
+
+                                    events.kills.forEach(function (kill) {
+                                        var found = false;
+                                        if (this.replayJSON.kills.length > 0) {
+                                            this.replayJSON.kills.some(function (k) {
+                                                found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                                return found;
+                                            });
+                                        }
+                                        if (!found) this.replayJSON.kills.push(kill);
+                                    }.bind(this));
+                                }
                                 this.updatePlayerStats().then(function(newPlayers) {
-                                    this.replayJSON.players = newPlayers;
+                                    if(newPlayers !== null) {
+                                        this.replayJSON.players = newPlayers;
+                                    }
                                     //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
                                     this.mongoconn.collection('matches').update(
                                         { replayId: this.replayId },
@@ -190,7 +197,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             }
                                         }.bind(this));
                                 }.bind(this));
-                            //}.bind(this));
+                            }.bind(this));
                         }
                     } else if(checkpoint.code === 1 && this.maxCheckpointTime > 0) {
                         // Its finished lets get the match result
@@ -412,61 +419,65 @@ Replay.prototype.getPlayerElo = function(players) {
 Replay.prototype.updatePlayerStats = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
 
-    return requestify.get(url).then(function(response) {
-        if (typeof response.body !== 'undefined' && response.body.length > 0) {
-            var data = JSON.parse(response.body);
-            if(data.hasOwnProperty('UserDetails')) {
-                var startTime = this.replayJSON.lastCheckpointTime;
-                var endTime = this.replayJSON.newCheckpointTime;
+    if(this.replayJSON.gameType !== 'solo_ai' && this.replayJSON.gameType !== 'coop_ai') {
+        return requestify.get(url).then(function(response) {
+            if (typeof response.body !== 'undefined' && response.body.length > 0) {
+                var data = JSON.parse(response.body);
+                if(data.hasOwnProperty('UserDetails')) {
+                    var startTime = this.replayJSON.lastCheckpointTime;
+                    var endTime = this.replayJSON.newCheckpointTime;
 
-                return this.getHeroDamageAtCheckpoint(startTime, endTime).then(function(allPlayerDamage) {
-                    var newPlayers = this.replayJSON.players.map(function(player, i) {
-                        var playerDamage = Replay.getDamageForPlayer(player, allPlayerDamage);
+                    return this.getHeroDamageAtCheckpoint(startTime, endTime).then(function(allPlayerDamage) {
+                        var newPlayers = this.replayJSON.players.map(function(player, i) {
+                            var playerDamage = Replay.getDamageForPlayer(player, allPlayerDamage);
 
-                        if(this.replayJSON.gameType === 'coop_ai' || this.replayJSON.gameType === 'solo_ai') {
-                            var playerData = null;
-                            for(var j = 0; j < data['UserDetails'].length; j++) {
-                                if(player.username === data['UserDetails'][j].Nickname) {
-                                    playerData = data['UserDetails'][j];
+                            if(this.replayJSON.gameType === 'coop_ai' || this.replayJSON.gameType === 'solo_ai') {
+                                var playerData = null;
+                                for(var j = 0; j < data['UserDetails'].length; j++) {
+                                    if(player.username === data['UserDetails'][j].Nickname) {
+                                        playerData = data['UserDetails'][j];
+                                    }
                                 }
+                                player.kills = playerData.HeroLastHits;
+                                player.towerLastHits = playerData.TowerLastHits;
+                                player.deaths = playerData.Deaths;
+                                player.assists = playerData.Assists;
+                                player.heroLevel = playerData.Level;
+                            } else {
+                                player.kills = data['UserDetails'][i].HeroLastHits;
+                                player.towerLastHits = data['UserDetails'][i].TowerLastHits;
+                                player.deaths = data['UserDetails'][i].Deaths;
+                                player.assists = data['UserDetails'][i].Assists;
+                                player.heroLevel = data['UserDetails'][i].Level;
                             }
-                            player.kills = playerData.HeroLastHits;
-                            player.towerLastHits = playerData.TowerLastHits;
-                            player.deaths = playerData.Deaths;
-                            player.assists = playerData.Assists;
-                            player.heroLevel = playerData.Level;
-                        } else {
-                            player.kills = data['UserDetails'][i].HeroLastHits;
-                            player.towerLastHits = data['UserDetails'][i].TowerLastHits;
-                            player.deaths = data['UserDetails'][i].Deaths;
-                            player.assists = data['UserDetails'][i].Assists;
-                            player.heroLevel = data['UserDetails'][i].Level;
-                        }
 
-                        player.damageToHeroes = playerDamage.damageToHeroes;
-                        player.damageToTowers = playerDamage.damageToTowers;
-                        player.damageToMinions = playerDamage.damageToMinions;
-                        player.damageToInhibitors = playerDamage.damageToInhibitors;
-                        player.damageToHarvesters = playerDamage.damageToHarvesters;
-                        player.damageToJungle = playerDamage.damageToJungle;
+                            player.damageToHeroes = playerDamage.damageToHeroes;
+                            player.damageToTowers = playerDamage.damageToTowers;
+                            player.damageToMinions = playerDamage.damageToMinions;
+                            player.damageToInhibitors = playerDamage.damageToInhibitors;
+                            player.damageToHarvesters = playerDamage.damageToHarvesters;
+                            player.damageToJungle = playerDamage.damageToJungle;
 
-                        return player;
+                            return player;
+                        }.bind(this));
+                        return Promise.all(newPlayers);
+                    }.bind(this), function(err) {
+                        var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
+                        Logger.append(LOG_FILE, error);
                     }.bind(this));
-                    return Promise.all(newPlayers);
-                }.bind(this), function(err) {
-                    var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
-                    Logger.append(LOG_FILE, error);
-                }.bind(this));
+                }
             }
-        }
-    }.bind(this)).catch(function(err) {
-        var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
-        this.queueManager.failed(this);
-    }.bind(this));
+        }.bind(this)).catch(function(err) {
+            var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
+            Logger.append(LOG_FILE, error);
+            this.replayJSON = null;
+            this.isReserved = false;
+            this.isRunningOnQueue = false;
+            this.queueManager.failed(this);
+        }.bind(this));
+    } else {
+        return null;
+    }
 };
 
 Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
@@ -623,17 +634,21 @@ Replay.prototype.isGameLive = function() {
  */
 Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
     return new Promise(function(resolve, reject) {
-        var eventFeed = {
-            kills: [],
-            towerKills: []
-        };
-        this.getTowerKillsAtCheckpoint(time1, time2, function(events) {
-            eventFeed.towerKills = events;
-            this.getHeroKillsAtCheckpoint(time1, time2).then(function(events) {
-                eventFeed.kills = events;
-                resolve(eventFeed);
-            });
-        }.bind(this));
+        if(this.replayJSON.gameType !== 'solo_ai' && this.replayJSON.gameType !== 'coop_ai') {
+            var eventFeed = {
+                kills: [],
+                towerKills: []
+            };
+            this.getTowerKillsAtCheckpoint(time1, time2, function(events) {
+                eventFeed.towerKills = events;
+                this.getHeroKillsAtCheckpoint(time1, time2).then(function(events) {
+                    eventFeed.kills = events;
+                    resolve(eventFeed);
+                });
+            }.bind(this));
+        } else {
+            resolve({ kills: [], towerKills: [] });
+        }
     }.bind(this));
 };
 
