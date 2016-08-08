@@ -16,14 +16,12 @@ if(cluster.isMaster) {
 if(cluster.isWorker) {
     
     function getCustomAndFeaturedReplays() {
-        console.log("[SCRAPER] Getting latest pvp, custom & featured replays".cyan);
         Replay.latest(null, 'false');
         Replay.latest('custom', 'false');
         Replay.latest('featured', 'false');
     }
 
     function getLiveReplays() {
-        console.log("[SCRAPER] Getting latest live replays".cyan);
         Replay.latest(null, 'true');
     }
 
