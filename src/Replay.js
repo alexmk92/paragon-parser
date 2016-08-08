@@ -67,8 +67,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                var liveString = data.isLive ? 'live' : 'not live';
-                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                //var liveString = data.isLive ? 'live' : 'not live';
+                //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
                 var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
