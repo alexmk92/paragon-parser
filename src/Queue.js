@@ -155,27 +155,23 @@ Queue.prototype.removeItemFromQueue = function(item) {
 Queue.prototype.uploadFile = function(item, callback) {
     try {
         // get a lock on this specific item
-        if(!item.isUploading) {
-            item.isUploading = true;
-            this.mongoconn.collection('matches').update(
-                { replayId: item.replayJSON.replayId },
-                { $set: item.replayJSON },
-                { upsert: true},
-                function(err, results) {
-                    item.isUploading = false;
-                    if(err) {
-                        callback({ message: 'failed to upload file'});
-                    } else {
-                        this.workers.some(function(worker, i) {
-                            if(worker.replayId === item.replayId) {
-                                worker.isReserved = false;
-                                this.workers.splice(i, 1);
-                                console.log('[QUEUE] Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
-                            }
-                        }.bind(this));
-                    }
-            }.bind(this));
-        }
+        this.mongoconn.collection('matches').update(
+            { replayId: item.replayJSON.replayId },
+            { $set: item.replayJSON },
+            { upsert: true},
+            function(err, results) {
+                if(err) {
+                    callback({ message: 'failed to upload file'});
+                } else {
+                    this.workers.some(function(worker, i) {
+                        if(worker.replayId === item.replayId) {
+                            worker.isReserved = false;
+                            this.workers.splice(i, 1);
+                            console.log('[QUEUE] Replay: '.yellow + worker.replayId + ' uploaded, the worker at: '.yellow + i + ' has been disposed'.yellow);
+                        }
+                    }.bind(this));
+                }
+        }.bind(this));
         callback(null);
     } catch(e) {
         console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
