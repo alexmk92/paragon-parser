@@ -28,6 +28,7 @@ var Queue = function(db, workers) {
         if(this.workers.length < this.maxWorkers) {
             this.initializeWorkers().then(function() {
                 this.runTasks();
+                this.fillBuffer(true);
             }.bind(this), function(e) {
                 process.exit(); // restart on an error
             });
