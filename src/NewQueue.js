@@ -28,7 +28,7 @@ Queue.prototype.initializeWorkers = function() {
 
 Queue.prototype.getNextJob = function(initializing) {
     if(!initializing) {
-        console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
+        //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
     }
     var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() FOR UPDATE';
     var updateQuery = 'UPDATE queue SET reserved=1';
@@ -80,7 +80,7 @@ Queue.prototype.failed = function(replay) {
 
 Queue.prototype.schedule = function(replay, ms) {
     var scheduledDate = new Date(Date.now() + ms);
-    console.log('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
+    //console.log('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
     var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3 WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         this.uploadFile(replay, function() {
@@ -128,24 +128,28 @@ Queue.prototype.removeDeadReplay = function(replay) {
  */
 
 Queue.prototype.uploadFile = function(replay, callback) {
-    try {
-        // get a lock on this specific item
-        this.mongoconn.collection('matches').update(
-            { replayId: replay.replayId },
-            { $set: replay.replayJSON },
-            { upsert: true},
-            function(err, results) {
-                if(err) {
-                    callback({ message: 'failed to upload file'});
-                } else {
-                    //console.log('[QUEUE] Replay file: '.green + replay.replayId + ' uploaded to mongo!'.green);
-                    callback(null);
-                }
-            }.bind(this));
-    } catch(e) {
-        console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
-        callback({ message: 'failed to upload' });
-        //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
+    if(replay.replayJSON !== null) {
+        try {
+            // get a lock on this specific item
+            this.mongoconn.collection('matches').update(
+                { replayId: replay.replayId },
+                { $set: replay.replayJSON },
+                { upsert: true},
+                function(err, results) {
+                    if(err) {
+                        callback({ message: 'failed to upload file'});
+                    } else {
+                        //console.log('[QUEUE] Replay file: '.green + replay.replayId + ' uploaded to mongo!'.green);
+                        callback(null);
+                    }
+                }.bind(this));
+        } catch(e) {
+            console.log('[MONGO ERROR] in Queue.js when uploading relay: '.red + item.replayId + '.  Error: '.red, e);
+            callback({ message: 'failed to upload' });
+            //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
+        }
+    } else {
+        callback({ message: 'replay JSON was null'})
     }
 };
 
