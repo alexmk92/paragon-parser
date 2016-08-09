@@ -34,30 +34,35 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                 connection.release();
                             });
                         } else {
-                            var replay = result[0];
-                            updateQuery += ' WHERE replayId= "' + replay.replayId + '"';
-                            connection.query(updateQuery, function(err, result) {
-                                if(err) {
-                                    return connection.rollback(function() {
-                                        Logger.append('./logs/log.txt', err);
-                                        console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
-                                        connection.release();
-                                    });
-                                } else {
-                                    connection.commit(function(err) {
-                                        if(err) {
-                                            return connection.rollback(function() {
-                                                Logger.append('./logs/log.txt', err);
-                                                console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
-                                                connection.release();
-                                            });
-                                        } else {
+                            if(typeof result !== 'undefined' && result && result.length > 0) {
+                                var replay = result[0];
+                                updateQuery += ' WHERE replayId= "' + replay.replayId + '"';
+                                connection.query(updateQuery, function(err, result) {
+                                    if(err) {
+                                        return connection.rollback(function() {
+                                            Logger.append('./logs/log.txt', err);
+                                            console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                             connection.release();
-                                            callback(replay);
-                                        }
-                                    })
-                                }
-                            });
+                                        });
+                                    } else {
+                                        connection.commit(function(err) {
+                                            if(err) {
+                                                return connection.rollback(function() {
+                                                    Logger.append('./logs/log.txt', err);
+                                                    console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
+                                                    connection.release();
+                                                });
+                                            } else {
+                                                connection.release();
+                                                callback(replay);
+                                            }
+                                        })
+                                    }
+                                });
+                            } else{
+                                connection.release();
+                                callback(null);
+                            }
                         }
                     });
                 }
