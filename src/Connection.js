@@ -84,7 +84,7 @@ Connection.prototype.query = function(queryString, callback) {
                     Logger.append('./logs/log.txt', 'QUERYSTRING: ' + queryString);
                     console.log("[MYSQL] Error: Query not successful".red);
                 }
-                if(typeof rows.affectedRows !== "undefined" && rows.affectedRows > 1) {
+                if(typeof rows !== "undefined" && rows && rows.affectedRows > 1) {
                     console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
                 }
                 connection.release();
