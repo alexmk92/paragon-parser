@@ -24,7 +24,6 @@ var Replay = function(db, replayId, checkpointTime, queue) {
     this.isRunningOnQueue = false;
     this.attempts = 0;
     this.processRequestedMongoHandle = false;
-    this.isScheduledInQueue = false; // flag to determine whether the Queue should increment the schedule property
     this.failed = false;
 
     this.queueManager = queue;
@@ -47,7 +46,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
         // We're no longer scheduled, we can now run this
-        this.isScheduledInQueue = false;
         this.isRunningOnQueue = true;
 
         if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
