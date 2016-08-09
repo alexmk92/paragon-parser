@@ -28,7 +28,6 @@ var Queue = function(db, workers) {
         if(this.workers.length < this.maxWorkers) {
             this.initializeWorkers().then(function() {
                 this.runTasks();
-                this.fillBuffer(true);
             }.bind(this), function(e) {
                 process.exit(); // restart on an error
             });
@@ -41,6 +40,10 @@ var Queue = function(db, workers) {
             this.fillBuffer(true);
         }
     }.bind(this), 2500);
+
+    setInterval(function() {
+        this.fillBuffer(true);
+    }.bind(this), 10000);
 
     setInterval(function() {
         this.disposeOfLockedReservedEvents();
