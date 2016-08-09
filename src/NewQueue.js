@@ -157,7 +157,7 @@ Queue.prototype.deleteFile = function(replay) {
     try {
         // get a lock on this specific item
         this.mongoconn.collection('matches').deleteOne(
-            { replayId: replay.replayJSON.replayId },
+            { replayId: replay.replayId },
             function(err, results) {
                 if(err) {
                     console.log('[QUEUE] Failed to remove replay file: '.red + replay.replayId + ' from mongo'.red);
