@@ -34,7 +34,14 @@ Queue.prototype.getNextJob = function(initializing) {
     var updateQuery = 'UPDATE queue SET reserved=1';
 
     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+        if(typeof replay !== 'undefined' && replay !== null) {
+            this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+        } else {
+            // we dont want to spam requests to get jobs if the queue is empty
+            setTimeout(function() {
+                this.getNextJob();
+            }.bind(this), 5000);
+        }
     }.bind(this));
 };
 
