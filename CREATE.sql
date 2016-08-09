@@ -14,7 +14,7 @@ CREATE TABLE queue (
     primary key (id)
 );
 
-ALTER TABLE replays ADD UNIQUE KEY `replayId` (`replayId`);
+ALTER TABLE queue ADD UNIQUE KEY `replayId` (`replayId`);
 
 -- ALTER TABLE queue ADD COLUMN completed_at TIMESTAMP DEFAULT null;
 
