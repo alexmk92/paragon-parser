@@ -14,17 +14,13 @@ var PGG_HOST = 'http://paragon.dev';
  * it has one static method called latest which returns a list of replay ids
  */
 
-var Replay = function(db, replayId, checkpointTime, queue) {
+var Replay = function(db, replayId, checkpointTime, attempts, queue) {
     this.mongoconn = db;
     this.replayId = replayId;
-    this.scheduledTime = new Date();
     this.replayJSON = null;
     this.maxCheckpointTime = 0;
     this.checkpointTime = 0;
-    this.isRunningOnQueue = false;
-    this.attempts = 0;
-    this.processRequestedMongoHandle = false;
-    this.failed = false;
+    this.attempts = attempts;
 
     this.queueManager = queue;
 };
@@ -35,19 +31,8 @@ var Replay = function(db, replayId, checkpointTime, queue) {
  */
 
 Replay.prototype.parseDataAtCheckpoint = function() {
-
-    //console.log('attempts is: ' + this.attempts);
-
-    if(this.failed || this.scheduledTime.getTime() > new Date().getTime()) {
-        this.isRunningOnQueue = false;
-        return;
-    }
-
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
-        // We're no longer scheduled, we can now run this
-        this.isRunningOnQueue = true;
-
         if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
             this.queueManager.removeDeadReplay(this);
             return;
@@ -68,21 +53,14 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 //var liveString = data.isLive ? 'live' : 'not live';
                 //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
-                var status = this.replayJSON.isLive ? 'ACTIVE' : 'FINAL';
-                var query = 'UPDATE replays SET status="' + status + '", checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() {
-                    //console.log('ran the update replays query successfully'.green);
-                });
-                //console.log(this.replayJSON.lastCheckpointTime);
-                //console.log(this.replayJSON.currentCheckpointTime);
+                var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
+                conn.query(query, function() {});
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
                     if(this.attempts > 5) {
                         this.queueManager.removeDeadReplay(this);
                     } else {
-                        this.isReserved = false;
-                        this.isRunningOnQueue = false;
                         this.queueManager.failed(this);
                     }
                 }
@@ -137,8 +115,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                 this.isUploading = false;
                                                 if(err) {
                                                     console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                    this.isReserved = false;
-                                                    this.isRunningOnQueue = false;
                                                     this.queueManager.failed(this);
                                                 } else {
                                                     //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
@@ -186,8 +162,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             this.isUploading = false;
                                             if(err) {
                                                 console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                this.isReserved = false;
-                                                this.isRunningOnQueue = false;
                                                 this.queueManager.failed(this);
                                             } else {
                                                 //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
@@ -210,9 +184,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
             }.bind(this)).catch(function(err) {
                 var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
-                this.replayJSON = null;
-                this.isReserved = false;
-                this.isRunningOnQueue = false;
                 this.queueManager.failed(this);
             }.bind(this));
         }.bind(this), function(httpStatus) {
@@ -240,9 +211,6 @@ Replay.prototype.getMatchResult = function() {
     }).catch(function(err) {
         var error = new Date() + 'Error in getMatchResult: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -296,27 +264,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(pvp) { matchDetails.gameType = 'pvp' }
                                 if(coop_ai) { matchDetails.gameType = 'coop_ai' }
                                 if(solo_ai) { matchDetails.gameType = 'solo_ai' }
-
-                                /*
-                                if(custom && featured) {
-                                    matchDetails.gameType = 'private_featured';
-                                }  else if(pvp && custom) {
-                                    matchDetails.gameType = 'private_pvp';
-                                } else if(custom) {
-                                    matchDetails.gameType = 'private';
-                                } else if(pvp && featured) {
-                                    matchDetails.gameType = 'featured_pvp';
-                                } else if(featured) {
-                                    matchDetails.gameType = 'featured';
-                                } else {
-                                    matchDetails.gameType = 'pvp';
-                                }
-                                if(solo_bot) {
-                                    matchDetails.gameType = 'solo_ai';
-                                } else if(coop_bot) {
-                                    matchDetails.gameType = 'coop_ai';
-                                }
-                                */
 
                                 var playersArray = [];
                                 var botsArray = [];
@@ -379,9 +326,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                     }.bind(this)).catch(function(err) {
                         var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
-                        this.replayJSON = null;
-                        this.isReserved = false;
-                        this.isRunningOnQueue = false;
                         this.queueManager.failed(this);
                     }.bind(this));
                 }
@@ -468,9 +412,6 @@ Replay.prototype.updatePlayerStats = function() {
         }.bind(this)).catch(function(err) {
             var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
-            this.replayJSON = null;
-            this.isReserved = false;
-            this.isRunningOnQueue = false;
             this.queueManager.failed(this);
         }.bind(this));
     } else {
@@ -500,9 +441,6 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -570,9 +508,6 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
         
     }.bind(this));
@@ -596,9 +531,6 @@ Replay.prototype.getReplaySummary = function() {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -622,9 +554,6 @@ Replay.prototype.isGameLive = function() {
         }).catch(function(err) {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
-            this.replayJSON = null;
-            this.isReserved = false;
-            this.isRunningOnQueue = false;
             this.queueManager.failed(this);
         }.bind(this));
     }.bind(this));
@@ -675,9 +604,6 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -705,9 +631,6 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -734,9 +657,6 @@ Replay.prototype.getDataForHeroKillId = function(id) {
     }).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -791,9 +711,6 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
     }.bind(this)).catch(function(err) {
         var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
-        this.replayJSON = null;
-        this.isReserved = false;
-        this.isRunningOnQueue = false;
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -865,7 +782,7 @@ Replay.latest = function(flag, live, recordFrom) {
                     });
                     VALUES = VALUES.substr(0, VALUES.length - 2);
                     if(VALUES !== '') {
-                        var query = 'INSERT IGNORE INTO replays (replayId, live) VALUES ' + VALUES;
+                        var query = 'INSERT IGNORE INTO queue (replayId, live) VALUES ' + VALUES;
                         conn.query(query, function() {});
 
                         resolve(data.replays);
@@ -880,9 +797,6 @@ Replay.latest = function(flag, live, recordFrom) {
         }).catch(function(err) {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
-            this.replayJSON = null;
-            this.isReserved = false;
-            this.isRunningOnQueue = false;
             this.queueManager.failed(this);
         }.bind(this));
     });
@@ -926,6 +840,8 @@ Replay.getDamageForPlayer = function(player, allPlayerDamage) {
  */
 
 Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
+    this.attempts = 0;
+    this.checkpointTime = 0;
     return {
         replayId: replayId,
         startedAt: null,

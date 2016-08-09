@@ -590,25 +590,23 @@ Queue.prototype.getNextItemAvailableInQueue = function() {
  */
 
 Queue.prototype.next = function() {
-    return new Promise(function(resolve, reject) {
-        var currentJob = this.queue.shift();
+    var currentJob = this.queue.shift();
 
-        if(typeof currentJob !== 'undefined' && currentJob !== null) {
-            this.queue.push(currentJob);
+    if(typeof currentJob !== 'undefined' && currentJob !== null) {
+        this.queue.push(currentJob);
 
-            var query = 'SELECT scheduled, reserved FROM queue WHERE replayId = "' + currentJob.replayId + '" AND scheduled <= NOW() AND reserved = false';
-            conn.query(query, function(results) {
-                if(results !== null && results.length > 0 && !currentJob.isReserved && !this.isItemRunningOnAnotherWorker(currentJob)) {
-                    currentJob.failed = false;
-                    resolve(currentJob);
-                } else {
-                    resolve(null);
-                }
-            }.bind(this));
-        } else {
-            resolve(null);
-        }
-    }.bind(this));
+        var query = 'SELECT scheduled, reserved FROM queue WHERE replayId = "' + currentJob.id + '" AND scheduled <= NOW() AND reserved = false';
+        conn.query(query, function(results) {
+            if(results !== null && results.length > 0 && !currentJob.isReserved && !this.isItemRunningOnAnotherWorker(currentJob)) {
+                currentJob.failed = false;
+                return currentJob;
+            } else {
+                return null;
+            }
+        }.bind(this));
+    } else {
+        return null;
+    }
 };
 
 module.exports = Queue;

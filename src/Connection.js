@@ -3,19 +3,19 @@ var conf = require('../conf.js');
 var Logger = require('./Logger');
 var colors = require('colors');
 
-var Connection = function() {
+var Connection = function(connectionLimit) {
     this.pool = mysql.createPool({
         host:     conf.HOST,
         user:     conf.USER,
         password: conf.PASSWORD,
         database: conf.DATABASE,
-        port:     3306
+        port:     3306,
+        connectionLimit: connectionLimit
     });
 };
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
     this.pool.getConnection(function (err, connection) {
-        console.log('i got called');
         if(err) {
             Logger.append('./logs/log.txt', err);
             console.log("[MYSQL] Error: Connection NOT made".red + err);
@@ -24,12 +24,14 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                 if(err) {
                     Logger.append('./logs/log.txt', err);
                     console.log("[MYSQL] Error: Transaction failed to begin".red + err);
+                    connection.release();
                 } else {
                     connection.query(selectQuery, function(err, result) {
                         if(err) {
                             return connection.rollback(function() {
                                 Logger.append('./logs/log.txt', err);
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
+                                connection.release();
                             });
                         } else {
                             var replay = result[0];
@@ -39,6 +41,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                     return connection.rollback(function() {
                                         Logger.append('./logs/log.txt', err);
                                         console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
+                                        connection.release();
                                     });
                                 } else {
                                     connection.commit(function(err) {
@@ -46,8 +49,10 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                             return connection.rollback(function() {
                                                 Logger.append('./logs/log.txt', err);
                                                 console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
+                                                connection.release();
                                             });
                                         } else {
+                                            connection.release();
                                             callback(replay);
                                         }
                                     })
