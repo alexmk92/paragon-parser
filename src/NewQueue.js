@@ -131,7 +131,7 @@ Queue.prototype.uploadFile = function(replay, callback) {
     try {
         // get a lock on this specific item
         this.mongoconn.collection('matches').update(
-            { replayId: replay.replayJSON.replayId },
+            { replayId: replay.replayId },
             { $set: replay.replayJSON },
             { upsert: true},
             function(err, results) {
