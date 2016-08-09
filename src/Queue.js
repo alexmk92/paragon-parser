@@ -543,8 +543,6 @@ Queue.prototype.initializeWorkers = function() {
                                         }
                                         j++;
                                     }
-                                }
-                                if((typeof item !== 'undefined' && item !== null)) {
                                     this.workers.push(item);
                                     console.log('[QUEUE] New worker created at index: '.yellow + (this.workers.length - 1) + ' servicing replay: '.yellow + item.replayId);
                                 }
