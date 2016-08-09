@@ -81,7 +81,7 @@ Queue.prototype.failed = function(replay) {
     var query = 'UPDATE queue SET completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + replay.replayId + '"';
 
     conn.query(query, function(row) {
-        if(row.affectedRows !== 0) {
+        if(typeof row !== 'undefined' && row.affectedRows !== 0) {
             console.log('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
             Logger.append(LOG_FILE, new Date() + ' The replay with id: ' + replay.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
             this.deleteFile(replay);
