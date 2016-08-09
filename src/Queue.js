@@ -113,6 +113,18 @@ Queue.prototype.removeDeadReplay = function(item) {
 Queue.prototype.removeItemFromQueue = function(item) {
     this.uploadFile(item, function(err) {
         if(err === null) {
+            this.queue.some(function(queueItem, i) {
+                if(queueItem.replayId === item.replayId) {
+                    this.queue.splice(i, 1);
+                    return true;
+                }
+                return false;
+            }.bind(this));
+            this.workers.some(function(workerItem, i) {
+                if(workerItem.replayId === item.replayId) {
+                    this.workers.splice(i, 1);
+                }
+            }.bind(this));
             console.log('[QUEUE] Replay '.green + item.replayId + ' finished processing'.green);
             var query = 'UPDATE replays SET completed=true, status="FINAL" WHERE replayId="' + item.replayId + '"';
             item.isRunningOnQueue = false;
@@ -120,13 +132,6 @@ Queue.prototype.removeItemFromQueue = function(item) {
             conn.query(query, function() {
                 query = 'DELETE FROM queue WHERE replayId="' + item.replayId + '"';
                 conn.query(query, function() {});
-            }.bind(this));
-            this.queue.some(function(queueItem, i) {
-                if(queueItem.replayId === item.replayId) {
-                    this.queue.splice(i, 1);
-                    return true;
-                }
-                return false;
             }.bind(this));
         } else {
             console.log('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
