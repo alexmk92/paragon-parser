@@ -531,25 +531,25 @@ Queue.prototype.initializeWorkers = function() {
                     this.getScheduledCount(function(scheduledCount) {
                         if(!(scheduledCount >= this.queue.length) || this.workers.length < this.maxWorkers) {
                             console.log('Creating: '.green + workersToCreate + ' workers'.green);
+                            var workerPromises = [];
                             for(var i = 0; i < workersToCreate; i++) {
-                                var item = this.next();
-                                //console.log('got item: '.bgYellow.gray, item.replayId);
-                                if(typeof item === 'undefined' || item === null) {
-                                    var j = 0;
-                                    while(j < this.queue.length) {
-                                        item = this.next();
-                                        if(typeof item !== 'undefined' && item !== null) {
-                                            j = this.queue.length;
-                                        }
-                                        j++;
-                                    }
-                                    this.workers.push(item);
-                                    console.log('[QUEUE] New worker created at index: '.yellow + (this.workers.length - 1) + ' servicing replay: '.yellow + item.replayId);
-                                }
+                                workerPromises.push(this.getNextItemAvailableInQueue());
                             }
+                            // Each call to get a new queue resource is a promise, therefore we want to fulfil
+                            // all promises so we can ensure we can process the new array
+                            Promise.all(workerPromises).then(function(workers) {
+                                var newWorkers = [];
+                                workers.forEach(function(worker) {
+                                    console.log(worker.replayId);
+                                    if(worker !== null) newWorkers.push(worker);
+                                });
+                                this.isInitializingWorkers = false;
+                                this.workers = this.workers.concat(newWorkers);
+                                resolve();
+                            }.bind(this));
+                        } else {
+                            resolve(null);
                         }
-                        this.isInitializingWorkers = false;
-                        resolve();
                     }.bind(this));
                 } else {
                     this.isInitializingWorkers = false;
@@ -563,38 +563,52 @@ Queue.prototype.initializeWorkers = function() {
     }.bind(this));
 };
 
+Queue.prototype.getNextItemAvailableInQueue = function() {
+    return new Promise(function(resolve, reject) {
+        this.next().then(function(nextItem) {
+            if(typeof nextItem === 'undefined' || nextItem === null) {
+                this.queue.some(function(item) {
+                    this.next().then(function(nextItem) {
+                        if(typeof nextItem !== 'undefined' && nextItem !== null) {
+                            resolve(nextItem);
+                            return true;
+                        }
+                        return false;
+                    }.bind(this));
+                }.bind(this));
+                console.log('checking further down queue');
+                resolve(null);
+            } else{
+                resolve(nextItem);
+            }
+        }.bind(this));
+    }.bind(this));
+};
+
 /*
  * Gets the next item in the queue
  */
 
 Queue.prototype.next = function() {
-    var currentJob = this.queue.shift();
+    return new Promise(function(resolve, reject) {
+        var currentJob = this.queue.shift();
 
-    if(typeof currentJob !== 'undefined' && currentJob !== null) {
-        this.queue.push(currentJob);
+        if(typeof currentJob !== 'undefined' && currentJob !== null) {
+            this.queue.push(currentJob);
 
-        var query = 'SELECT scheduled FROM queue WHERE replayId = "' + currentJob.replayId + '" AND scheduled <= NOW()';
-        conn.query(query, function(results) {
-            if(results.length > 0 && !currentJob.isReserved && !this.isItemRunningOnAnotherWorker(currentJob)) {
-                currentJob.failed = false;
-            } else {
-                return null;
-            }
-        }.bind(this));
-        return currentJob;
-    } else {
-        return null;
-    }
-
-    /*
-    //console.log('checking if: ' + currentJob.replayId + ' can be parsed.', new Date().getTime() > currentJob.scheduledTime.getTime());
-    if(currentJob && !currentJob.isReserved && new Date().getTime() > currentJob.scheduledTime.getTime() && !this.isItemRunningOnAnotherWorker(currentJob)) {
-        currentJob.failed = false; // remove failed flag, we can process this item now
-        return currentJob;
-    } else {
-        return null;
-    }
-    */
+            var query = 'SELECT scheduled, reserved FROM queue WHERE replayId = "' + currentJob.replayId + '" AND scheduled <= NOW() AND reserved = false';
+            conn.query(query, function(results) {
+                if(results !== null && results.length > 0 && !currentJob.isReserved && !this.isItemRunningOnAnotherWorker(currentJob)) {
+                    currentJob.failed = false;
+                    resolve(currentJob);
+                } else {
+                    resolve(null);
+                }
+            }.bind(this));
+        } else {
+            resolve(null);
+        }
+    }.bind(this));
 };
 
 module.exports = Queue;

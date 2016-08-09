@@ -1,4 +1,5 @@
 var Queue = require('./src/Queue');
+var NewQueue = require('./src/NewQueue');
 var Logger = require('./src/Logger');
 var Replay = require('./src/Replay');
 var async = require('async.js');
@@ -12,6 +13,10 @@ var mongodb = null;
 var queue   = null;
 var workers = 1;
 
+var q = new NewQueue();
+q.initializeWorkers();
+
+/*
 // Take command line arguments
 process.argv.some(function (val, index) {
     if(index == 2) {
@@ -73,3 +78,4 @@ MongoClient.connect(url, function(err, db) {
         });
     }
 });
+*/
