@@ -533,7 +533,7 @@ Queue.prototype.initializeWorkers = function() {
                             console.log('Creating: '.green + workersToCreate + ' workers'.green);
                             for(var i = 0; i < workersToCreate; i++) {
                                 var item = this.next();
-                                console.log('got item: '.bgYellow.gray, item.replayId);
+                                //console.log('got item: '.bgYellow.gray, item.replayId);
                                 if(typeof item === 'undefined' || item === null) {
                                     var j = 0;
                                     while(j < this.queue.length) {
