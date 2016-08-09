@@ -15,6 +15,10 @@ var Queue = function(db, workers) {
     this.maxWorkers = workers || 40;
     conn = new Connection(workers || 40);
 
+    setInterval(function() {
+        this.disposeOfLockedReservedEvents();
+    }.bind(this), 180000);
+
     this.initializeWorkers();
 };
 
@@ -25,6 +29,15 @@ Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
         this.getNextJob(true);
     }
+};
+
+/*
+ * Unbinds all locked events from the Queue
+ */
+
+Queue.prototype.disposeOfLockedReservedEvents = function() {
+    var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 3';
+    conn.query(query, function() {});
 };
 
 Queue.prototype.getNextJob = function(initializing) {
