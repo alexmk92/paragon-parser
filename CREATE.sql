@@ -14,6 +14,8 @@ CREATE TABLE queue (
     primary key (id)
 );
 
+ALTER TABLE replays ADD UNIQUE KEY `replayId` (`replayId`);
+
 -- ALTER TABLE queue ADD COLUMN completed_at TIMESTAMP DEFAULT null;
 
 -- reserved = only one worker can access it if true
