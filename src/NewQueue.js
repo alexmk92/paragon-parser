@@ -165,7 +165,6 @@ Queue.prototype.deleteFile = function(replay) {
                     console.log('[QUEUE] Replay: '.yellow + replay.replayId + ' was deleted from mongo successfully.'.yellow);
                 }
             }.bind(this));
-        callback(null);
     } catch(e) {
         console.log('[MONGO ERROR] in Queue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
         //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
