@@ -31,7 +31,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                             return connection.rollback(function() {
                                 Logger.append('./logs/log.txt', err);
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
-                                connection.release();
+                                //connection.release();
                             });
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
@@ -42,7 +42,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                         return connection.rollback(function() {
                                             Logger.append('./logs/log.txt', err);
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
-                                            connection.release();
+                                            //connection.release();
                                         });
                                     } else {
                                         connection.commit(function(err) {
@@ -50,7 +50,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                 return connection.rollback(function() {
                                                     Logger.append('./logs/log.txt', err);
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
-                                                    connection.release();
+                                                    //connection.release();
                                                 });
                                             } else {
                                                 connection.release();
