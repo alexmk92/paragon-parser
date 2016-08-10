@@ -24,7 +24,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                 if(err) {
                     Logger.append('./logs/log.txt', err);
                     console.log("[MYSQL] Error: Transaction failed to begin".red + err);
-                    connection.release();
+                    //connection.release();
                 } else {
                     connection.query(selectQuery, function(err, result) {
                         if(err) {
@@ -53,14 +53,14 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                     //connection.release();
                                                 });
                                             } else {
-                                                connection.release();
+                                                //connection.release();
                                                 callback(replay);
                                             }
                                         })
                                     }
                                 });
                             } else{
-                                connection.release();
+                                //connection.release();
                                 callback(null);
                             }
                         }
