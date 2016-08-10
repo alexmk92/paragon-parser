@@ -44,7 +44,7 @@ Queue.prototype.getNextJob = function(initializing) {
     if(!initializing) {
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
     }
-    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() FOR UPDATE LIMIT 1';
+    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
     var updateQuery = 'UPDATE queue SET reserved=1';
 
     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
