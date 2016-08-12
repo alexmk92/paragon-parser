@@ -16,8 +16,12 @@ var Connection = function(connectionLimit) {
 
 Connection.prototype.end = function() {
     this.pool.end(function (err) {
+        if(err) {
+            console.log('[SQL] Failed to kill remaining connections in the queue'.red);
+        } else {
+            console.log('[SQL] Killed all connections in the pool.'.green);
+        }
         // all connections in the pool have ended
-        console.log('[SQL] Killed all connections in the pool.');
     });
 };
 
