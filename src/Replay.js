@@ -79,7 +79,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                 this.queueManager.failed(this);
                                             } else {
                                                 // schedule for later
-                                                console.log('[REPLAY] Replay has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
+                                                console.log('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
                                                 this.queueManager.schedule(this, 60000);
                                             }
                                     }.bind(this));
