@@ -53,14 +53,14 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                     //connection.release();
                                                 });
                                             } else {
-                                                //connection.release();
+                                                connection.release();
                                                 callback(replay);
                                             }
                                         })
                                     }
                                 });
                             } else{
-                                //connection.release();
+                                connection.release();
                                 callback(null);
                             }
                         }
