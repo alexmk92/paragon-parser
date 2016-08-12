@@ -61,14 +61,40 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     if(this.attempts > 5) {
                         this.queueManager.removeDeadReplay(this);
                     } else {
-                        this.queueManager.failed(this);
+                        // TODO: Refactor this in future so its cleaner
+                        if(this.attempts <= 3) {
+                            if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
+                                this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
+                                    this.replayJSON.players = matchInfo.players;
+                                    this.replayJSON.gameType = matchInfo.gameType;
+                                    this.replayJSON.isFeatured = matchInfo.isFeatured;
+
+                                    this.mongoconn.collection('matches').update(
+                                        { replayId: this.replayId },
+                                        { $set: this.replayJSON },
+                                        { upsert: true},
+                                        function(err, results) {
+                                            if(err) {
+                                                console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
+                                                this.queueManager.failed(this);
+                                            } else {
+                                                // schedule for later
+                                                console.log('[REPLAY] Replay has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
+                                                this.queueManager.schedule(this, 60000);
+                                            }
+                                    }.bind(this));
+                                }.bind(this));
+                            }
+                        } else {
+                            this.queueManager.failed(this);
+                        }
                     }
                 }
 
                 if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
                     //console.log('up to date');
-                    this.queueManager.schedule(this, 45000);
+                    this.queueManager.schedule(this, 60000);
                 } else {
                     if(checkpoint.code === 0) {
                         // Update the file with the new streaming data
@@ -112,7 +138,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             { $set: this.replayJSON },
                                             { upsert: true},
                                             function(err, results) {
-                                                this.isUploading = false;
                                                 if(err) {
                                                     console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
                                                     this.queueManager.failed(this);
@@ -159,7 +184,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                         { $set: this.replayJSON },
                                         { upsert: true},
                                         function(err, results) {
-                                            this.isUploading = false;
                                             if(err) {
                                                 console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
                                                 this.queueManager.failed(this);
