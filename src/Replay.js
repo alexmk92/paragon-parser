@@ -351,6 +351,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                         var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
                         this.queueManager.failed(this);
+                        reject();
                     }.bind(this));
                 }
             } else {
@@ -579,6 +580,7 @@ Replay.prototype.isGameLive = function() {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
+            reject();
         }.bind(this));
     }.bind(this));
 };
@@ -823,6 +825,7 @@ Replay.latest = function(flag, live, recordFrom) {
             var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
+            reject();
         }.bind(this));
     });
 };
