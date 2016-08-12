@@ -45,7 +45,7 @@ MongoClient.connect(url, function(err, db) {
         process.stdin.resume();//so the program will not close instantly
 
         function cleanup() {
-            Queue.killConnections();
+            if(queue) { queue.killConnections(); }
             if (!cleaningUp) {
                 cleaningUp = true;
                 /*

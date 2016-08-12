@@ -197,11 +197,10 @@ Queue.prototype.deleteFile = function(replay) {
 };
 
 /*
- * STATIC
  * Terminates any underlying connections in the connection object
  */
 
-Queue.killConnections = function() {
+Queue.prototype.killConnections = function() {
     if(conn) { conn.end(); }
 };
 
