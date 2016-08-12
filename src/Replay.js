@@ -777,12 +777,13 @@ Replay.latest = function(flag, live, recordFrom) {
                     var VALUES = '';
                     data.replays.forEach(function (replay) {
                         if(new Date(replay.Timestamp) >= recordFrom) {
-                            VALUES += "('" + replay.SessionName + "', " + isLive + "), ";
+                            // any new items have the highest priority
+                            VALUES += "('" + replay.SessionName + "', " + isLive + ", 4), ";
                         }
                     });
                     VALUES = VALUES.substr(0, VALUES.length - 2);
                     if(VALUES !== '') {
-                        var query = 'INSERT IGNORE INTO queue (replayId, live) VALUES ' + VALUES;
+                        var query = 'INSERT IGNORE INTO queue (replayId, live, priority) VALUES ' + VALUES;
                         conn.query(query, function() {});
 
                         resolve(data.replays);

@@ -44,8 +44,9 @@ Queue.prototype.getNextJob = function(initializing) {
     if(!initializing) {
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
     }
-    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-    var updateQuery = 'UPDATE queue SET reserved=1';
+    // Set the priority on the queue back to 0 once we start working it
+    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+    var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
 
     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
         if(typeof replay !== 'undefined' && replay !== null) {
@@ -118,7 +119,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
     this.uploadFile(replay, function(err) {
         if(err === null) {
             console.log('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
-            var query = 'UPDATE queue SET completed=true, completed_at=NOW(), live=0 WHERE replayId="' + replay.replayId + '"';
+            var query = 'UPDATE queue SET priority=0, completed=true, completed_at=NOW(), live=0 WHERE replayId="' + replay.replayId + '"';
             conn.query(query, function() {});
             this.getNextJob();
         } else {
