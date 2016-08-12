@@ -884,6 +884,15 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
 
 /*
  * STATIC
+ * Terminates the connection object
+ */
+
+Replay.killConnections = function() {
+    if(conn) { conn.end(); }
+};
+
+/*
+ * STATIC
  * Checks if a bot was in the game
  */
 

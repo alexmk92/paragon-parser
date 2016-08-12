@@ -14,6 +14,13 @@ var Connection = function(connectionLimit) {
     });
 };
 
+Connection.prototype.end = function() {
+    this.pool.end(function (err) {
+        // all connections in the pool have ended
+        console.log('[SQL] Killed all connections in the pool.');
+    });
+};
+
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
     this.pool.getConnection(function (err, connection) {
         if(err) {

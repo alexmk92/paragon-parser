@@ -43,6 +43,7 @@ if(cluster.isWorker) {
     process.stdin.resume();//so the program will not close instantly
 
     function cleanup() {
+        Replay.killConnections();
         console.log('[SCRAPER] Scraper was shut down successfully.'.yellow);
     }
 
