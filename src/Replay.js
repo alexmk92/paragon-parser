@@ -413,7 +413,7 @@ Replay.prototype.getPlayersElo = function(players) {
 Replay.prototype.endMatch = function() {
     var url = conf.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
     console.log('Match ended, sending GET request to: ' + url);
-    return requestify.get().then(function(response) {
+    requestify.get(url).then(function(response) {
          console.log('Sent request to update player ELO:', response);
     }, function(err) {
         console.log('Error when match ended when trying to calculate new ELO: '.red, err);
