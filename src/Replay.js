@@ -345,10 +345,10 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 //console.log('getting players elo');
                                 this.getPlayersElo(playersArray).then(function(playersWithElo) {
                                     matchDetails.players = playersWithElo;
-                                    console.log('[REPLAY] Successfully set players ELO');
+                                    console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
                                     resolve(matchDetails);
                                 }, function(err) {
-                                    console.log('[REPLAY] Failed to get players ELO.'.red);
+                                    console.log('[REPLAY] Failed to get players ELO: '.red + err);
                                 });
                             }
                         } else {
