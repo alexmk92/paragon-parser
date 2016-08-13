@@ -382,7 +382,7 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
         requestify.post(url, { players: players, matchId: matchId }).then(function(response) {
-            if(response.hasOwnProperty('body') && response.body.length > 0 && response.code !== 200) {
+            if(response.hasOwnProperty('body') && response.body.length > 0 && response.code === 200) {
                 response.body = JSON.parse(response.body);
                 var newPlayers = [];
                 players.forEach(function(player) {
