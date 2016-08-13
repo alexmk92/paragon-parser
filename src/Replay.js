@@ -3,11 +3,11 @@ var http = require('http');
 var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
+var conf = require('./conf.js');
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
 var LOG_FILE = './logs/log.txt';
-var PGG_HOST = 'http://paragon.dev';
 
 /*
  * Replay object manages which chunk of data we want to stream from the endpoint
@@ -37,6 +37,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
             this.queueManager.removeDeadReplay(this);
             return;
         }
+
+        // check if ELO has been set, if not we'll
 
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
@@ -341,7 +343,7 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 // Check for MMR
                                 //console.log('getting players elo');
-                                //this.getPlayerElo(playersArray);
+                                this.getPlayersElo(playersArray);
                                 
                                 resolve(matchDetails);
                             }
@@ -368,8 +370,8 @@ Replay.prototype.getPlayersAndGameType = function() {
  * Params: Array of players
  */
 
-Replay.prototype.getPlayerElo = function(players) {
-    var url = PGG_HOST + '/api/v1/parser/getPlayersElo';
+Replay.prototype.getPlayersElo = function(players) {
+    var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     console.log('Getting player ELO, sending post request to: ' + url);
     return requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
         console.log('RESPONSE IS: ', response);
@@ -387,7 +389,7 @@ Replay.prototype.getPlayerElo = function(players) {
  */
 
 Replay.prototype.endMatch = function() {
-    var url = PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
+    var url = conf.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
     console.log('Match ended, sending GET request to: ' + url);
     return requestify.get().then(function(response) {
          console.log('Sent request to update player ELO:', response);
