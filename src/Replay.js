@@ -348,9 +348,11 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 } else {
                                     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
-                                        //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
+                                        console.log('[REPLAY] Successfully set players ELO, player is now: '.green, playersWithElo.length);
+                                        resolve(matchDetails);
                                     }, function(err) {
                                         console.log('[REPLAY] Failed to get players ELO: '.red, err);
+                                        // This has
                                         //this.queueManager.failed(this);
                                     }.bind(this));
                                 }
@@ -380,9 +382,19 @@ Replay.prototype.getPlayersAndGameType = function() {
 
 Replay.prototype.getPlayersElo = function(players, matchId) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
+    if(players.length === 0) {
+        console.log('ERRRRR NO PLAYERS SENT FOR REPLAY: '.red + matchId + '!'.red);
+    }
     return new Promise(function(resolve, reject) {
-        //console.log('Sent request for match: ' + matchId + ', players: ', players.length);
-        requestify.post(url, { players: players, matchId: matchId }).then(function(response) {
+        requestify.request(url, {
+            method: 'POST',
+            body: { players: players, matchId: matchId },
+            dataType: 'json',
+            headers: {
+                'Content-Type' : 'application/json'
+            }
+        }).then(function(response) {
+            //console.log('the response was: ', response);
             if(response.hasOwnProperty('body') && response.body.length > 0 && response.code === 200) {
                 response.body = JSON.parse(response.body);
                 var newPlayers = [];
@@ -398,10 +410,12 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 });
                 resolve(newPlayers);
             } else {
+                console.log('Error: Sent request for match: '.red, data);
                 reject(response);
             }
         }.bind(this), function(err) {
             console.log('Error when getting player ELO: '.red, err);
+            console.log('Error: Sent request for match: '.red, data);
             reject(err);
         });
     }.bind(this));
