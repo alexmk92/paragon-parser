@@ -343,14 +343,17 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 // Check for MMR
                                 //console.log('getting players elo');
-                                this.getPlayersElo(playersArray).then(function(playersWithElo) {
-                                    matchDetails.players = playersWithElo;
-                                    //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
+                                if(coop_ai || solo_ai) {
                                     resolve(matchDetails);
-                                }, function(err) {
-                                    console.log('[REPLAY] Failed to get players ELO: '.red, err);
-                                    //this.queueManager.failed(this);
-                                }.bind(this));
+                                } else {
+                                    this.getPlayersElo(playersArray).then(function(playersWithElo) {
+                                        matchDetails.players = playersWithElo;
+                                        //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
+                                    }, function(err) {
+                                        console.log('[REPLAY] Failed to get players ELO: '.red, err);
+                                        //this.queueManager.failed(this);
+                                    }.bind(this));
+                                }
                             }
                         } else {
                             reject();
