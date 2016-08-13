@@ -348,7 +348,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
                                     resolve(matchDetails);
                                 }, function(err) {
-                                    console.log('[REPLAY] Failed to get players ELO: '.red + err);
+                                    console.log('[REPLAY] Failed to get players ELO: '.red, err);
                                     //this.queueManager.failed(this);
                                 }.bind(this));
                             }
