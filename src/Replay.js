@@ -345,7 +345,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 //console.log('getting players elo');
                                 this.getPlayersElo(playersArray).then(function(playersWithElo) {
                                     matchDetails.players = playersWithElo;
-                                    console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
+                                    //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
                                     resolve(matchDetails);
                                 }, function(err) {
                                     console.log('[REPLAY] Failed to get players ELO: '.red + err);
@@ -376,18 +376,13 @@ Replay.prototype.getPlayersAndGameType = function() {
 
 Replay.prototype.getPlayersElo = function(players) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
-    console.log('Getting player ELO, sending post request to: ' + url);
     return new Promise(function(resolve, reject) {
         requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
-            console.log('RESPONSE IS: ', response);
             if(response.hasOwnProperty('body') && response.body.length > 0) {
                 response.body = JSON.parse(response.body);
-                console.log('GOT IN HERE: '.yellow);
                 var newPlayers = [];
                 players.forEach(function(player) {
-                    console.log('PLAYER IS: '.yellow, player);
                     response.body.some(function(playerElo) {
-                        console.log('Player elo is: '.yellow, player);
                         if(playerElo.accountId === player.accountId) {
                             player.elo = playerElo.elo;
                             newPlayers.push(player);
@@ -396,7 +391,6 @@ Replay.prototype.getPlayersElo = function(players) {
                         return false;
                     });
                 });
-                console.log('GOT HERE NEW PLAYERS IS: '.yellow, newPlayers);
                 resolve(newPlayers);
             } else {
                 reject();
