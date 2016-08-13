@@ -349,7 +349,8 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     resolve(matchDetails);
                                 }, function(err) {
                                     console.log('[REPLAY] Failed to get players ELO: '.red + err);
-                                });
+                                    //this.queueManager.failed(this);
+                                }.bind(this));
                             }
                         } else {
                             reject();
@@ -378,7 +379,7 @@ Replay.prototype.getPlayersElo = function(players) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
         requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
-            if(response.hasOwnProperty('body') && response.body.length > 0) {
+            if(response.hasOwnProperty('body') && response.body.length > 0 && response.code !== 200) {
                 response.body = JSON.parse(response.body);
                 var newPlayers = [];
                 players.forEach(function(player) {
@@ -393,11 +394,11 @@ Replay.prototype.getPlayersElo = function(players) {
                 });
                 resolve(newPlayers);
             } else {
-                reject();
+                reject(response);
             }
         }.bind(this), function(err) {
             console.log('Error when getting player ELO: '.red, err);
-            reject();
+            reject(err);
         });
     }.bind(this));
 };
