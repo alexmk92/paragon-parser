@@ -397,6 +397,7 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 });
                 resolve(newPlayers);
             } else {
+                console.log('Sent request for match: ' + matchId + ', players: ', players);
                 reject(response);
             }
         }.bind(this), function(err) {
