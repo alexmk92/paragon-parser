@@ -384,7 +384,9 @@ Replay.prototype.getPlayersElo = function(players) {
                 console.log('GOT IN HERE: '.yellow);
                 var newPlayers = [];
                 players.forEach(function(player) {
+                    console.log('PLAYER IS: '.yellow, player);
                     response.body.some(function(playerElo) {
+                        console.log('Player elo is: '.yellow, player);
                         if(playerElo.accountId === player.accountId) {
                             player.elo = playerElo.elo;
                             newPlayers.push(player);
