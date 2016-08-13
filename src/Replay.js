@@ -4,6 +4,7 @@ var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
 var conf = require('../conf.js');
+var request = require('request');
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
@@ -386,6 +387,40 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
         console.log('ERRRRR NO PLAYERS SENT FOR REPLAY: '.red + matchId + '!'.red);
     }
     return new Promise(function(resolve, reject) {
+        var options = {
+            url: url,
+            method: 'POST',
+            json: true,
+            body: { players: players, matchId: matchId },
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        };
+        request(options, function(err, response, body) {
+            if(err) {
+                console.log('Error: Sent request for match: '.red + matchId);
+                reject(err);
+            } else {
+                if(body.length > 0) {
+                    var newPlayers = [];
+                    players.forEach(function(player) {
+                        response.body.some(function(playerElo) {
+                            if(playerElo.accountId === player.accountId) {
+                                player.elo = playerElo.elo;
+                                newPlayers.push(player);
+                                return true;
+                            }
+                            return false;
+                        });
+                    });
+                    resolve(newPlayers);
+                } else {
+                    console.log('Error: Sent request for match: '.red + matchId);
+                    reject('Body was invalid');
+                }
+            }
+        });
+        /*
         requestify.request(url, {
             method: 'POST',
             body: { players: players, matchId: matchId },
@@ -414,10 +449,11 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 reject(response);
             }
         }.bind(this), function(err) {
-            console.log('Error when getting player ELO: '.red, err);
-            console.log('Error: Sent request for match: '.red, data);
+            //console.log('Error when getting player ELO: '.red, err);
+            console.log('Error: Sent request for match: '.red + matchId);
             reject(err);
         });
+        */
     }.bind(this));
 };
 
