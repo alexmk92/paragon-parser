@@ -370,7 +370,7 @@ Replay.prototype.getPlayersAndGameType = function() {
 Replay.prototype.getPlayerElo = function(players) {
     var url = PGG_HOST + '/api/v1/parser/getPlayersElo';
     console.log('sending post request to: ' + url);
-    return requestify.post(url, { players: players }).then(function(response) {
+    return requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
         console.log('RESPONSE IS: ', response);
     }, function(err) {
         console.log('error querying: '.red, err);
