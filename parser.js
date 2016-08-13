@@ -7,7 +7,7 @@ var cluster = require('cluster');
 var config  = require('./conf.js');
 var MongoClient = require('mongodb').MongoClient;
 
-var url = 'mongodb://' + config.MONGO_HOST + '/paragon';
+var url = 'mongodb://' + config.MONGO_HOST + '/' + config.MONGO_DATABASE;
 var mongodb = null;
 var queue   = null;
 var workers = 1;
