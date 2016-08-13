@@ -3,7 +3,7 @@ var http = require('http');
 var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
-var conf = require('./conf.js');
+var conf = require('../conf.js');
 
 var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
@@ -343,9 +343,13 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 // Check for MMR
                                 //console.log('getting players elo');
-                                this.getPlayersElo(playersArray);
-                                
-                                resolve(matchDetails);
+                                this.getPlayersElo(playersArray).then(function(playersWithElo) {
+                                    matchDetails.players = playersWithElo;
+                                    console.log('[REPLAY] Successfully set players ELO');
+                                    resolve(matchDetails);
+                                }, function(err) {
+                                    console.log('[REPLAY] Failed to get players ELO.'.red);
+                                });
                             }
                         } else {
                             reject();
@@ -373,11 +377,30 @@ Replay.prototype.getPlayersAndGameType = function() {
 Replay.prototype.getPlayersElo = function(players) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     console.log('Getting player ELO, sending post request to: ' + url);
-    return requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
-        console.log('RESPONSE IS: ', response);
-    }, function(err) {
-        console.log('Error when getting player ELO: '.red, err);
-    });
+    return new Promise(function(resolve, reject) {
+        requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
+            console.log('RESPONSE IS: ', response);
+            if(response.hasOwnProperty('body') && response.body.length > 0) {
+                var newPlayers = [];
+                players.forEach(function(player) {
+                    response.body.some(function(playerElo) {
+                        if(playerElo.accountId === player.accountId) {
+                            player.elo = playerElo.elo;
+                            newPlayers.push(player);
+                            return true;
+                        }
+                        return false;
+                    });
+                });
+                resolve(newPlayers);
+            } else {
+                reject();
+            }
+        }.bind(this), function(err) {
+            console.log('Error when getting player ELO: '.red, err);
+            reject();
+        });
+    }.bind(this));
 };
 
 /*
