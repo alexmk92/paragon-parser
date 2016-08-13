@@ -392,6 +392,7 @@ Replay.prototype.getPlayersElo = function(players) {
                         return false;
                     });
                 });
+                console.log('GOT HERE NEW PLAYERS IS: '.yellow, newPlayers);
                 resolve(newPlayers);
             } else {
                 reject();
