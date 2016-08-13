@@ -346,7 +346,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(coop_ai || solo_ai) {
                                     resolve(matchDetails);
                                 } else {
-                                    this.getPlayersElo(playersArray).then(function(playersWithElo) {
+                                    this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
                                         //console.log('[REPLAY] Successfully set players ELO, player is now: ', playersWithElo);
                                     }, function(err) {
@@ -378,10 +378,10 @@ Replay.prototype.getPlayersAndGameType = function() {
  * Params: Array of players
  */
 
-Replay.prototype.getPlayersElo = function(players) {
+Replay.prototype.getPlayersElo = function(players, matchId) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
-        requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
+        requestify.post(url, { players: players, matchId: matchId }).then(function(response) {
             if(response.hasOwnProperty('body') && response.body.length > 0 && response.code !== 200) {
                 response.body = JSON.parse(response.body);
                 var newPlayers = [];
