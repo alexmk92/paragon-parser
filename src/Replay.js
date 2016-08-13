@@ -201,6 +201,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.replayJSON.winningTeam = winningTeam;
                             this.replayJSON.isLive = false;
                             this.replayJSON.lastCheckpointTime = this.replayJSON.newCheckpointTime;
+                            this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }
@@ -369,11 +370,29 @@ Replay.prototype.getPlayersAndGameType = function() {
 
 Replay.prototype.getPlayerElo = function(players) {
     var url = PGG_HOST + '/api/v1/parser/getPlayersElo';
-    console.log('sending post request to: ' + url);
+    console.log('Getting player ELO, sending post request to: ' + url);
     return requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
         console.log('RESPONSE IS: ', response);
     }, function(err) {
-        console.log('error querying: '.red, err);
+        console.log('Error when getting player ELO: '.red, err);
+    });
+};
+
+/*
+ * TYPE: GET
+ * EP: /api/v1/parser/endMatch/{id}
+ *
+ * Tells PGG that the match has finished and to create a job to calculate
+ * the players new ELO
+ */
+
+Replay.prototype.endMatch = function() {
+    var url = PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
+    console.log('Match ended, sending GET request to: ' + url);
+    return requestify.get().then(function(response) {
+         console.log('Sent request to update player ELO:', response);
+    }, function(err) {
+        console.log('Error when match ended when trying to calculate new ELO: '.red, err);
     });
 };
 
