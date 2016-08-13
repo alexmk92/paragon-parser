@@ -15,7 +15,7 @@ if(cluster.isMaster) {
 
 if(cluster.isWorker) {
 
-    var recordFrom = new Date('August 8, 2016 23:00:59');
+    var recordFrom = new Date('August 13, 2016 20:25:00');
 
     function getCustomAndFeaturedReplays() {
         Replay.latest(null, 'false', recordFrom);

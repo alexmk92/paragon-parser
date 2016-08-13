@@ -381,6 +381,7 @@ Replay.prototype.getPlayersAndGameType = function() {
 Replay.prototype.getPlayersElo = function(players, matchId) {
     var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
+        //console.log('Sent request for match: ' + matchId + ', players: ', players.length);
         requestify.post(url, { players: players, matchId: matchId }).then(function(response) {
             if(response.hasOwnProperty('body') && response.body.length > 0 && response.code === 200) {
                 response.body = JSON.parse(response.body);
@@ -397,7 +398,6 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 });
                 resolve(newPlayers);
             } else {
-                console.log('Sent request for match: ' + matchId + ', players: ', players);
                 reject(response);
             }
         }.bind(this), function(err) {
@@ -417,9 +417,9 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
 
 Replay.prototype.endMatch = function() {
     var url = conf.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
-    console.log('Match ended, sending GET request to: ' + url);
+    //console.log('Match ended, sending GET request to: ' + url);
     requestify.get(url).then(function(response) {
-         console.log('Sent request to update player ELO:', response);
+         //console.log('Sent request to update player ELO:', response);
     }, function(err) {
         console.log('Error when match ended when trying to calculate new ELO: '.red, err);
     });
