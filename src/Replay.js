@@ -381,6 +381,7 @@ Replay.prototype.getPlayersElo = function(players) {
         requestify.post(url, { players: players, matchId: this.replayId }).then(function(response) {
             console.log('RESPONSE IS: ', response);
             if(response.hasOwnProperty('body') && response.body.length > 0) {
+                console.log('GOT IN HERE: '.yellow);
                 var newPlayers = [];
                 players.forEach(function(player) {
                     response.body.some(function(playerElo) {
