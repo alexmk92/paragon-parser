@@ -343,9 +343,12 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 matchDetails.players = playersArray;
 
 
-                                if(!coop_ai && !solo_ai) { // If not a bot game, parse it
-                                    resolve(matchDetails);
-                                }
+
+                                resolve(matchDetails);//do always
+                                // if(!coop_ai && !solo_ai) { // If not a bot game, parse it
+                                //     resolve(matchDetails);
+                                //     console.log("")
+                                // }
                                 // Check for MMR
                                 //console.log('getting players elo');
                                 // if(coop_ai || solo_ai) {
