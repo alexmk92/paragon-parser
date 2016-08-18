@@ -53,14 +53,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                var liveString = data.isLive ? 'live' : 'not live';
-                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                //var liveString = data.isLive ? 'live' : 'not live';
+                //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() { console.log("did query") });
+                conn.query(query, function() {});
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
-                    console.log("no checkpoint data found")
                     this.attempts++;
                     if(this.attempts > 5) {
                         this.queueManager.removeDeadReplay(this);
@@ -101,7 +100,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.queueManager.schedule(this, 60000);
                 } else {
                     if(checkpoint.code === 0) {
-                        console.log("foobarfar");
                         // Update the file with the new streaming data
                         if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
                             this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
@@ -345,12 +343,9 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 matchDetails.players = playersArray;
 
 
-
-                                resolve(matchDetails);//do always
-                                // if(!coop_ai && !solo_ai) { // If not a bot game, parse it
-                                //     resolve(matchDetails);
-                                //     console.log("")
-                                // }
+                                if(!coop_ai && !solo_ai) { // If not a bot game, parse it
+                                    resolve(matchDetails);
+                                }
                                 // Check for MMR
                                 //console.log('getting players elo');
                                 // if(coop_ai || solo_ai) {
