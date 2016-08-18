@@ -57,9 +57,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() {});
+                conn.query(query, function() { console.log("did query") });
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
+                    console.log("no checkpoint data found")
                     this.attempts++;
                     if(this.attempts > 5) {
                         this.queueManager.removeDeadReplay(this);
@@ -100,6 +101,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.queueManager.schedule(this, 60000);
                 } else {
                     if(checkpoint.code === 0) {
+                        console.log("foobarfar");
                         // Update the file with the new streaming data
                         if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
                             this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
