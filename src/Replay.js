@@ -204,7 +204,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.replayJSON.winningTeam = winningTeam;
                             this.replayJSON.isLive = false;
                             this.replayJSON.lastCheckpointTime = this.replayJSON.newCheckpointTime;
-                            this.endMatch();
+                            //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     }
@@ -342,21 +342,25 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 playersArray = playersArray.concat(botsArray);
                                 matchDetails.players = playersArray;
 
+
+                                if(!coop_ai && !solo_ai) { // If not a bot game, parse it
+                                    resolve(matchDetails);
+                                }
                                 // Check for MMR
                                 //console.log('getting players elo');
-                                if(coop_ai || solo_ai) {
-                                    resolve(matchDetails);
-                                } else {
-                                    this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
-                                        matchDetails.players = playersWithElo;
-                                        console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
-                                        resolve(matchDetails);
-                                    }, function(err) {
-                                        console.log('[REPLAY] Failed to get players ELO: '.red);
-                                        // This has
-                                        this.queueManager.failed(this);
-                                    }.bind(this));
-                                }
+                                // if(coop_ai || solo_ai) {
+                                //     resolve(matchDetails);
+                                // } else {
+                                //     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
+                                //         matchDetails.players = playersWithElo;
+                                //         console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
+                                //         resolve(matchDetails);
+                                //     }, function(err) {
+                                //         console.log('[REPLAY] Failed to get players ELO: '.red);
+                                //         // This has
+                                //         this.queueManager.failed(this);
+                                //     }.bind(this));
+                                // }
                             }
                         } else {
                             reject();
@@ -464,6 +468,7 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
  */
 
 Replay.prototype.endMatch = function() {
+
     var url = conf.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
     //console.log('Match ended, sending GET request to: ' + url);
     requestify.get(url).then(function(response) {
@@ -471,6 +476,7 @@ Replay.prototype.endMatch = function() {
     }, function(err) {
         console.log('Error when match ended when trying to calculate new ELO: '.red, err);
     });
+
 };
 
 /*
