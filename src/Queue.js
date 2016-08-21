@@ -60,7 +60,7 @@ Queue.prototype.getNextJob = function(initializing) {
 };
 
 Queue.prototype.runTask = function(replay) {
-    //console.log('[QUEUE] Running work for Replay: '.green + replay.replayId);
+    console.log('[QUEUE] Running work for Replay: '.green + replay.replayId);
     replay.parseDataAtCheckpoint();
 };
 
