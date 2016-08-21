@@ -27,7 +27,7 @@ var Queue = function(db, workers) {
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
         setTimeout(function() {
-            this.getNextJob(true);
+            this.getNextJob();
         }.bind(this), (100 * i));
     }
 };
@@ -42,9 +42,9 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function(initializing) {
-    if(!initializing) {
-        //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
-    }
+    console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
+    // if(!initializing) {
+    // }
     // Set the priority on the queue back to 0 once we start working it
     var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
     //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
@@ -82,11 +82,11 @@ Queue.prototype.failed = function(replay) {
             console.log('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
             Logger.append(LOG_FILE, new Date() + ' The replay with id: ' + replay.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
             this.deleteFile(replay);
-            this.getNextJob(false);
+            this.getNextJob();
         } else {
             console.log('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
             Logger.append('./logs/log.txt', new Date() + ' Failed to update the failure attempt for ' + replay.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
-            this.getNextJob(false);
+            this.getNextJob();
         }
     }.bind(this));
 };
@@ -101,7 +101,7 @@ Queue.prototype.schedule = function(replay, ms) {
     var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3 WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         this.uploadFile(replay, function() {
-            this.getNextJob(false);
+            this.getNextJob();
         }.bind(this));
     }.bind(this));
 };
@@ -136,7 +136,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
         Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
         console.log('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
         this.deleteFile(replay);
-        this.getNextJob(false);
+        this.getNextJob();
     }.bind(this));
 };
 
@@ -149,7 +149,7 @@ Queue.prototype.removeBotGame = function(replay) {
     conn.query(query, function() {
         //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
         console.log('[QUEUE] Replay removed as it is a bot game for: '.red + replay.replayId);
-        this.getNextJob(false);
+        this.getNextJob();
     }.bind(this));
 };
 
