@@ -36,6 +36,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                     Logger.append('./logs/log.txt', err);
                     console.log("[MYSQL] Error: Transaction failed to begin".red + err);
                     //connection.release();
+                    callback(null);
                 } else {
                     connection.query(selectQuery, function(err, result) {
                         if(err) {
@@ -43,6 +44,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                 Logger.append('./logs/log.txt', err);
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
                                 //connection.release();
+                                callback(null);
                             });
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
@@ -54,6 +56,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                             Logger.append('./logs/log.txt', err);
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                             //connection.release();
+                                            callback(null);
                                         });
                                     } else {
                                         connection.commit(function(err) {
@@ -62,6 +65,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                     Logger.append('./logs/log.txt', err);
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
                                                     //connection.release();
+                                                    callback(null);
                                                 });
                                             } else {
                                                 connection.release();
