@@ -145,6 +145,19 @@ Queue.prototype.removeDeadReplay = function(replay) {
 };
 
 /*
+ * Removes a bot game from the queue
+ */
+
+Queue.prototype.removeBotGame = function(replay) {
+    var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
+    conn.query(query, function() {
+        //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
+        console.log('[QUEUE] Replay removed as it is a bot game for: '.red + replay.replayId);
+        this.getNextJob(false);
+    }.bind(this));
+};
+
+/*
  * Uploads the replay json file to mongo
  */
 

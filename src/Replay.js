@@ -346,7 +346,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     resolve(matchDetails);
                                 } else {
-                                    this.queueManager.removeDeadReplay(this);
+                                    this.queueManager.removeBotGame(this);
                                     reject();
                                 }
                                 // Check for MMR
