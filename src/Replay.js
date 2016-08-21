@@ -98,10 +98,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.queueManager.failed(this);
                         }
                     }
-                }
-
-                // Handle any jobs to schedule in future
-                if(checkpoint.code === 1 && data.isLive === true) {
+                } else if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
                     //console.log('up to date');
                     this.queueManager.schedule(this, 60000);
