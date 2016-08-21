@@ -30,6 +30,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
         if(err) {
             Logger.append('./logs/log.txt', err);
             console.log("[MYSQL] Error: Connection NOT made".red + err);
+            callback(null);
         } else if(connection) {
             connection.beginTransaction(function(err) {
                 if(err) {
