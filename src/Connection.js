@@ -88,13 +88,18 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
 };
 
 Connection.prototype.query = function(queryString, callback) {
+    console.log("about to run a query", queryString);
     this.pool.getConnection(function (err, connection) {
+        console.log("lvl1");
         if(err) {
             Logger.append('./logs/log.txt', err);
             console.log("[MYSQL] Error: Connection NOT made".red);
         }
         if(connection) {
+            console.log("lvl2");
             connection.query(queryString, function(err, rows) {
+
+                console.log("lvl3");
                 if(err) {
                     Logger.append('./logs/log.txt', err);
                     Logger.append('./logs/log.txt', 'QUERYSTRING: ' + queryString);
