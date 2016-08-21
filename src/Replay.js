@@ -156,12 +156,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     }.bind(this));
                                 }.bind(this));
                             }.bind(this), function(isBotGame) {
-                                console.log("we here 1");
                                 if(isBotGame) {
-                                    console.log("is bot game1");
                                     this.queueManager.removeBotGame(this);
                                 } else {
-                                    console.log("failed1");
                                     this.queueManager.failed(this);
                                 }
                             }.bind(this));
