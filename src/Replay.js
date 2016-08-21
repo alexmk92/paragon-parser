@@ -86,6 +86,12 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                 this.queueManager.schedule(this, 60000);
                                             }
                                     }.bind(this));
+                                }.bind(this), function(isBotGame) {
+                                    if(isBotGame) {
+                                        this.queueManager.removeBotGame(this);
+                                    } else {
+                                        this.queueManager.failed(this);
+                                    }
                                 }.bind(this));
                             }
                         } else {
@@ -151,6 +157,12 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                         }.bind(this));
                                     }.bind(this));
                                 }.bind(this));
+                            }.bind(this), function(isBotGame) {
+                                if(isBotGame) {
+                                    this.queueManager.removeBotGame(this);
+                                } else {
+                                    this.queueManager.failed(this);
+                                }
                             }.bind(this));
                         } else {
                             this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
@@ -220,7 +232,11 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
                 Logger.append(LOG_FILE, "The replay id: " + this.replayId + " has expired.");
+                console.log('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
                 this.queueManager.removeItemFromQueue(this);
+            } else {
+                console.log('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
+                this.queueManager.failed(this);
             }
         }.bind(this));
     }.bind(this));
@@ -349,8 +365,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     resolve(matchDetails);
                                 } else {
-                                    this.queueManager.removeBotGame(this);
-                                    reject();
+                                    reject(true);
                                 }
                                 // Check for MMR
                                 //console.log('getting players elo');
@@ -369,17 +384,17 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 // }
                             }
                         } else {
-                            reject();
+                            reject(false);
                         }
                     }.bind(this)).catch(function(err) {
                         var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
                         this.queueManager.failed(this);
-                        reject();
+                        reject(false);
                     }.bind(this));
                 }
             } else {
-                reject();
+                reject(false);
             }
         }.bind(this));
     }.bind(this));
