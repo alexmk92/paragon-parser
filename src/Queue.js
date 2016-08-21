@@ -26,7 +26,9 @@ var Queue = function(db, workers) {
     // Reserve resource
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
-        this.getNextJob(true);
+        setTimeout(function() {
+            this.getNextJob(true);
+        }, (10 * i));
     }
 };
 

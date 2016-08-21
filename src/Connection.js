@@ -40,7 +40,6 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                     callback(null);
                 } else {
                     connection.query(selectQuery, function(err, result) {
-                        console.log(result);
                         if(err) {
                             return connection.rollback(function() {
                                 Logger.append('./logs/log.txt', err);
