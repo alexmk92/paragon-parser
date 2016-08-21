@@ -220,8 +220,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
                     } else {
-                        console.log('[REPLAY] Unhandled case in Replay.js for replay: '.red + this.replayId)
-                        this.queueManager.failed(this);
+                        console.log('[REPLAY] Unhandled case in Replay.js for replay: '.red + this.replayId + ' the returned checkpoint was: '.red, checkpoint);
+                        this.queueManager.schedule(this, 60000);
                     }
                 }
             }.bind(this)).catch(function(err) {
