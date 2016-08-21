@@ -358,27 +358,19 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 playersArray = playersArray.concat(botsArray);
                                 matchDetails.players = playersArray;
 
-
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
-                                    resolve(matchDetails);
+                                    // Check for MMR
+                                    this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
+                                        matchDetails.players = playersWithElo;
+                                        console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
+                                        resolve(matchDetails);
+                                    }, function(err) {
+                                        console.log('[REPLAY] Failed to get players ELO: '.red + err);
+                                        this.queueManager.failed(this);
+                                    }.bind(this));
                                 } else {
                                     reject(true);
                                 }
-                                // Check for MMR
-                                //console.log('getting players elo');
-                                // if(coop_ai || solo_ai) {
-                                //     resolve(matchDetails);
-                                // } else {
-                                //     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
-                                //         matchDetails.players = playersWithElo;
-                                //         console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
-                                //         resolve(matchDetails);
-                                //     }, function(err) {
-                                //         console.log('[REPLAY] Failed to get players ELO: '.red);
-                                //         // This has
-                                //         this.queueManager.failed(this);
-                                //     }.bind(this));
-                                // }
                             }
                         } else {
                             reject(false);
@@ -436,7 +428,7 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                     resolve(newPlayers);
                 } else {
                     console.log('Error: No data sent back from server in body: '.red + matchId);
-                    reject(response);
+                    reject('[REPLAY] Could not get player Elo for match: '.red + matchId);
                 }
             }
         });
