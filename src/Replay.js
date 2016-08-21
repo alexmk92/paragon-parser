@@ -53,8 +53,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                var liveString = data.isLive ? 'live' : 'not live';
-                console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                // var liveString = data.isLive ? 'live' : 'not live';
+                // console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
                 conn.query(query, function() {});
@@ -87,12 +87,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             }
                                     }.bind(this));
                                 }.bind(this), function(isBotGame) {
-                                    console.log("we here");
                                     if(isBotGame) {
-                                        console.log("is a bot game");
                                         this.queueManager.removeBotGame(this);
                                     } else {
-                                        console.log("failed");
                                         this.queueManager.failed(this);
                                     }
                                 }.bind(this));
@@ -861,7 +858,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
                 return({ code: 1 });
             }
         } else {
-            Logger.append(LOG_FILE, 'events was not a valid key for the checkpoints array or there were no events');
+            //Logger.append(LOG_FILE, 'events was not a valid key for the checkpoints array or there were no events');
             return({ code: 2 });
         }
     }.bind(this)).catch(function(err) {

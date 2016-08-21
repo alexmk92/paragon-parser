@@ -42,7 +42,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function(initializing) {
-    console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
+    //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
     // if(!initializing) {
     // }
     // Set the priority on the queue back to 0 once we start working it
@@ -133,7 +133,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
 Queue.prototype.removeDeadReplay = function(replay) {
     var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
-        Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
+        //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
         console.log('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
         this.deleteFile(replay);
         this.getNextJob();
@@ -148,7 +148,7 @@ Queue.prototype.removeBotGame = function(replay) {
     var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
-        console.log('[QUEUE] Replay removed as it is a bot game for: '.red + replay.replayId);
+        console.log('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
         this.getNextJob();
     }.bind(this));
 };
