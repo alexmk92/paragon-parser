@@ -53,8 +53,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
                     this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                //var liveString = data.isLive ? 'live' : 'not live';
-                //console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                // var liveString = data.isLive ? 'live' : 'not live';
+                // console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
                 var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
                 conn.query(query, function() {});
@@ -345,6 +345,8 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     resolve(matchDetails);
+                                } else {
+                                    this.queueManager.removeItemFromQueue(this);
                                 }
                                 // Check for MMR
                                 //console.log('getting players elo');
