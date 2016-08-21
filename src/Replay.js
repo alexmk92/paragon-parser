@@ -225,7 +225,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
 
             }.bind(this)).catch(function(err) {
-                var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+                var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
                 this.queueManager.failed(this);
             }.bind(this));
@@ -256,7 +256,7 @@ Replay.prototype.getMatchResult = function() {
             }
         }
     }).catch(function(err) {
-        var error = new Date() + 'Error in getMatchResult: ' + JSON.stringify(err);
+        var error = 'Error in getMatchResult: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -387,7 +387,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                             reject(false);
                         }
                     }.bind(this)).catch(function(err) {
-                        var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
+                        var error = 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
                         this.queueManager.failed(this);
                         reject(false);
@@ -552,13 +552,13 @@ Replay.prototype.updatePlayerStats = function() {
                         }.bind(this));
                         return Promise.all(newPlayers);
                     }.bind(this), function(err) {
-                        var error = new Date() + 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
+                        var error = 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
                         Logger.append(LOG_FILE, error);
                     }.bind(this));
                 }
             }
         }.bind(this)).catch(function(err) {
-            var error = new Date() + 'Error in updatePlayerStats: ' + JSON.stringify(err);
+            var error = 'Error in updatePlayerStats: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
         }.bind(this));
@@ -587,7 +587,7 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(allDamage);
     }.bind(this)).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -654,7 +654,7 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
             }
         }
     }).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
         
@@ -677,7 +677,7 @@ Replay.prototype.getReplaySummary = function() {
             return { code: 1 };
         }
     }).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -700,7 +700,7 @@ Replay.prototype.isGameLive = function() {
                 reject();
             }
         }).catch(function(err) {
-            var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+            var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
             reject();
@@ -751,7 +751,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
         }
         cb(events);
     }).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -778,7 +778,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(events);
     }.bind(this)).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -804,7 +804,7 @@ Replay.prototype.getDataForHeroKillId = function(id) {
             }
         }
     }).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -858,7 +858,7 @@ Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
             return({ code: 2 });
         }
     }.bind(this)).catch(function(err) {
-        var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
@@ -945,7 +945,7 @@ Replay.latest = function(flag, live, recordFrom) {
                 reject('The body had no replay data.');
             }
         }).catch(function(err) {
-            var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+            var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
             Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
             reject();

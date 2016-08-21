@@ -41,10 +41,9 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
     conn.query(query, function() {});
 };
 
-Queue.prototype.getNextJob = function(initializing) {
+Queue.prototype.getNextJob = function() {
     //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
-    // if(!initializing) {
-    // }
+
     // Set the priority on the queue back to 0 once we start working it
     //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
     var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
@@ -80,12 +79,12 @@ Queue.prototype.failed = function(replay) {
     conn.query(query, function(row) {
         if(typeof row !== 'undefined' && row.affectedRows !== 0) {
             console.log('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
-            Logger.append(LOG_FILE, new Date() + ' The replay with id: ' + replay.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
+            Logger.append(LOG_FILE, 'The replay with id: ' + replay.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
             this.deleteFile(replay);
             this.getNextJob();
         } else {
             console.log('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
-            Logger.append('./logs/log.txt', new Date() + ' Failed to update the failure attempt for ' + replay.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
+            Logger.append(LOG_FILE, 'Failed to update the failure attempt for ' + replay.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
             this.getNextJob();
         }
     }.bind(this));
