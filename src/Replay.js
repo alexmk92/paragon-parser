@@ -347,6 +347,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     resolve(matchDetails);
                                 } else {
                                     this.queueManager.removeDeadReplay(this);
+                                    reject();
                                 }
                                 // Check for MMR
                                 //console.log('getting players elo');
