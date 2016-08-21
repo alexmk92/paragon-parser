@@ -98,7 +98,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.queueManager.failed(this);
                         }
                     }
-                } else if(checkpoint.code === 1 && data.isLive === true) {
+                }
+
+                // Handle any jobs to schedule in future
+                if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
                     //console.log('up to date');
                     this.queueManager.schedule(this, 60000);
@@ -217,10 +220,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
-                    } else {
-                        console.log('[REPLAY] Unhandled case in Replay.js for replay: '.red + this.replayId + ' the returned checkpoint was: '.red, checkpoint);
-                        this.queueManager.schedule(this, 60000);
-                    }
+                    } 
                 }
 
 
