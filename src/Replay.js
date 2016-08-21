@@ -207,6 +207,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this));
+                    } else {
+                        console.log('[REPLAY] Unhandled case in Replay.js for replay: '.red + this.replayId)
+                        this.queueManager.failed(this);
                     }
                 }
             }.bind(this)).catch(function(err) {
