@@ -69,14 +69,14 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                     callback(null);
                                                 });
                                             } else {
-                                                //connection.release();
+                                                connection.release();
                                                 callback(replay);
                                             }
                                         })
                                     }
                                 });
                             } else{
-                                //connection.release();
+                                connection.release();
                                 callback(null);
                             }
                         }
