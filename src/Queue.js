@@ -145,7 +145,6 @@ Queue.prototype.removeDeadReplay = function(replay) {
  */
 
 Queue.prototype.removeBotGame = function(replay) {
-    console.log("lets remove a bot game, ", replay);
     var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
