@@ -101,9 +101,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.queueManager.failed(this);
                         }
                     }
-                }
-
-                if(checkpoint.code === 1 && data.isLive === true) {
+                } else if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
                     //console.log('up to date');
                     this.queueManager.schedule(this, 60000);
@@ -157,7 +155,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                                     //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
                                                     this.parseDataAtCheckpoint();
                                                 }
-                                        }.bind(this));
+                                            }.bind(this));
                                     }.bind(this));
                                 }.bind(this));
                             }.bind(this), function(isBotGame) {
@@ -230,6 +228,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         this.queueManager.schedule(this, 60000);
                     }
                 }
+
+
             }.bind(this)).catch(function(err) {
                 var error = new Date() + 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
