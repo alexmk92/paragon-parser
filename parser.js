@@ -61,17 +61,18 @@ MongoClient.connect(url, function(err, db) {
                 */
             }
         }
-
-        //do something when app is closing
-        process.on('exit', cleanup);
-
-        //catches ctrl+c event
-        process.on('SIGINT', cleanup);
-
-        //catches uncaught exceptions
-        process.on('uncaughtException', function(err) {
-            console.log('[PARSER] Uncaught Exception: '.red, err);
-            cleanup();
-        });
     }
+});
+
+//do something when app is closing
+process.on('exit', cleanup);
+
+//catches ctrl+c event
+process.on('SIGINT', cleanup);
+
+//catches uncaught exceptions
+process.on('uncaughtException', function (err) {
+    console.error((new Date).toUTCString() + ' uncaughtException:', err.message);
+    console.error(err.stack);
+    process.exit(1);
 });
