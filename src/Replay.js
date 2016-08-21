@@ -87,9 +87,12 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                             }
                                     }.bind(this));
                                 }.bind(this), function(isBotGame) {
+                                    console.log("we here");
                                     if(isBotGame) {
+                                        console.log("is a bot game");
                                         this.queueManager.removeBotGame(this);
                                     } else {
+                                        console.log("failed");
                                         this.queueManager.failed(this);
                                     }
                                 }.bind(this));
@@ -158,9 +161,12 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     }.bind(this));
                                 }.bind(this));
                             }.bind(this), function(isBotGame) {
+                                console.log("we here 1");
                                 if(isBotGame) {
+                                    console.log("is bot game1");
                                     this.queueManager.removeBotGame(this);
                                 } else {
+                                    console.log("failed1");
                                     this.queueManager.failed(this);
                                 }
                             }.bind(this));
@@ -365,6 +371,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     resolve(matchDetails);
                                 } else {
+                                    console.log("rejection");
                                     reject(true);
                                 }
                                 // Check for MMR
