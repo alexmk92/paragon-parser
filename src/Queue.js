@@ -28,7 +28,7 @@ Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
         setTimeout(function() {
             this.getNextJob(true);
-        }, (10 * i));
+        }.bind(this), (10 * i));
     }
 };
 
