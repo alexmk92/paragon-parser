@@ -36,7 +36,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                 if(err) {
                     //Logger.append('./logs/log.txt', err);
                     console.log("[MYSQL] Error: Transaction failed to begin".red + err);
-                    connection.release();
+                    //connection.release();
                     callback(null);
                 } else {
                     connection.query(selectQuery, function(err, result) {
@@ -44,7 +44,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                             return connection.rollback(function() {
                                 //Logger.append('./logs/log.txt', err);
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
-                                connection.release();
+                                //connection.release();
                                 callback(null);
                             });
                         } else {
@@ -56,7 +56,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                         return connection.rollback(function() {
                                             //Logger.append('./logs/log.txt', err);
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
-                                            connection.release();
+                                            //connection.release();
                                             callback(null);
                                         });
                                     } else {
@@ -65,7 +65,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                 return connection.rollback(function() {
                                                     //Logger.append('./logs/log.txt', err);
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
-                                                    connection.release();
+                                                    //connection.release();
                                                     callback(null);
                                                 });
                                             } else {

@@ -365,7 +365,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     resolve(matchDetails);
                                 } else {
-                                    console.log("rejection");
                                     reject(true);
                                 }
                                 // Check for MMR
