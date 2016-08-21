@@ -10,7 +10,6 @@ var LOG_FILE = './logs/log.txt';
 
 var Queue = function(db, workers) {
     this.mongoconn = db; // If null, couldn't connect
-    this.emptyQueue = false;
 
     this.maxWorkers = workers || 40;
     conn = new Connection(workers || 40);
@@ -50,18 +49,12 @@ Queue.prototype.getNextJob = function(initializing) {
 
     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
         if(typeof replay !== 'undefined' && replay !== null) {
-            this.emptyQueue = false;
             this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
         } else {
-            if(!this.emptyQueue) {
-                console.log('[QUEUE] Waiting for jobs'.yellow);
-                this.emptyQueue = true;
-            }
-
             // we dont want to spam requests to get jobs if the queue is empty
             setTimeout(function() {
                 this.getNextJob();
-            }.bind(this), 5000);
+            }.bind(this), 1000);
         }
     }.bind(this));
 };
