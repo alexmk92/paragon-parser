@@ -46,8 +46,8 @@ Queue.prototype.getNextJob = function(initializing) {
     // if(!initializing) {
     // }
     // Set the priority on the queue back to 0 once we start working it
-    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-    //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+    //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
     var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
 
     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
