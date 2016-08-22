@@ -35,12 +35,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
     var conn = new Connection();
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
-        /*
         if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
             this.queueManager.removeDeadReplay(this);
             return;
         }
-        */
 
         // check if ELO has been set, if not we'll
 
