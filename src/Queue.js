@@ -64,7 +64,7 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 500);
+                }.bind(this), 100);
             }
         }.bind(this));
     } else {
