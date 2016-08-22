@@ -68,10 +68,10 @@ Queue.prototype.getNextJob = function() {
             }
         }.bind(this));
     } else {
-        console.log('trying to fetch again in 0.5s');
+        console.log('trying to fetch again in 0.1s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 500);
+        }.bind(this), 100);
     }
 };
 
