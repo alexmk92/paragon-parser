@@ -24,6 +24,7 @@ Connection.prototype.end = function() {
 };
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
+    console.log('Running transaction: '.cyan + selectQuery);
     this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
@@ -81,6 +82,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
 };
 
 Connection.prototype.query = function(queryString, callback) {
+    console.log('Running query: '.cyan + queryString);
     this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
