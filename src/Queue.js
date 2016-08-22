@@ -37,11 +37,13 @@ Queue.prototype.initializeWorkers = function() {
  */
 
 Queue.prototype.disposeOfLockedReservedEvents = function() {
+    var conn = new Connection();
     var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 3';
     conn.query(query, function() {});
 };
 
 Queue.prototype.getNextJob = function() {
+    var conn = new Connection();
     //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
 
     // Set the priority on the queue back to 0 once we start working it
@@ -95,6 +97,7 @@ Queue.prototype.failed = function(replay) {
  */
 
 Queue.prototype.schedule = function(replay, ms) {
+    var conn = new Connection();
     var scheduledDate = new Date(Date.now() + ms);
     console.log('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
     var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3 WHERE replayId="' + replay.replayId + '"';
@@ -111,6 +114,7 @@ Queue.prototype.schedule = function(replay, ms) {
  */
 
 Queue.prototype.removeItemFromQueue = function(replay) {
+    var conn = new Connection();
     this.uploadFile(replay, function(err) {
         if(err === null) {
             console.log('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
@@ -130,6 +134,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
  */
 
 Queue.prototype.removeDeadReplay = function(replay) {
+    var conn = new Connection();
     var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
@@ -144,6 +149,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
  */
 
 Queue.prototype.removeBotGame = function(replay) {
+    var conn = new Connection();
     var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
     conn.query(query, function() {
         //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
@@ -202,14 +208,6 @@ Queue.prototype.deleteFile = function(replay) {
         console.log('[MONGO ERROR] in Queue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
         //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
     }
-};
-
-/*
- * Terminates any underlying connections in the connection object
- */
-
-Queue.prototype.killConnections = function() {
-    if(conn) { conn.end(); }
 };
 
 module.exports = Queue;

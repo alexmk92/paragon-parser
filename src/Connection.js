@@ -3,19 +3,18 @@ var conf = require('../conf.js');
 var Logger = require('./Logger');
 var colors = require('colors');
 
-var Connection = function(connectionLimit) {
-    this.pool = mysql.createPool({
+var Connection = function() {
+    this.connection = mysql.createConnection({
         host:     conf.HOST,
         user:     conf.USER,
         password: conf.PASSWORD,
         database: conf.DATABASE,
-        port:     3306,
-        connectionLimit: connectionLimit
+        port:     3306
     });
 };
 
 Connection.prototype.end = function() {
-    this.pool.end(function (err) {
+    this.connection.end(function (err) {
         if(err) {
             console.log('[SQL] Failed to kill remaining connections in the queue'.red);
         } else {
@@ -26,83 +25,83 @@ Connection.prototype.end = function() {
 };
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
-    this.pool.getConnection(function (err, connection) {
+    this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
             console.log("[MYSQL] Error: Connection NOT made".red + err);
             callback(null);
-        } else if(connection) {
-            connection.beginTransaction(function(err) {
+        } else {
+            this.connection.beginTransaction(function(err) {
                 if(err) {
                     console.log("[MYSQL] Error: Transaction failed to begin".red + err);
                     callback(null);
                 } else {
-                    connection.query(selectQuery, function(err, result) {
+                    this.connection.query(selectQuery, function(err, result) {
                         if(err) {
-                            connection.rollback(function() {
+                            this.connection.rollback(function() {
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
                             });
-                            connection.release();
+                            this.connection.end();
                             callback(null);
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
                                 var replay = result[0];
                                 updateQuery += ' WHERE replayId= "' + replay.replayId + '"';
-                                connection.query(updateQuery, function(err, result) {
+                                this.connection.query(updateQuery, function(err, result) {
                                     if(err) {
-                                        connection.rollback(function() {
+                                        this.connection.rollback(function() {
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                         });
-                                        connection.release();
+                                        this.connection.end();
                                         callback(null);
                                     } else {
-                                        connection.commit(function(err) {
+                                        this.connection.commit(function(err) {
                                             if(err) {
-                                                connection.rollback(function() {
+                                                this.connection.rollback(function() {
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
                                                 });
-                                                connection.release();
+                                                this.connection.end();
                                                 callback(null);
                                             } else {
-                                                connection.release();
+                                                this.connection.end();
                                                 callback(replay);
                                             }
-                                        })
+                                        }.bind(this))
                                     }
-                                });
+                                }.bind(this));
                             } else{
-                                connection.release();
+                                this.connection.end();
                                 callback(null);
                             }
                         }
-                    });
+                    }.bind(this));
                 }
-            });
+            }.bind(this));
         }
-    });
+    }.bind(this));
 };
 
 Connection.prototype.query = function(queryString, callback) {
-    this.pool.getConnection(function (err, connection) {
+    this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
             console.log("[MYSQL] Error: Connection NOT made".red);
-        }
-        if(connection) {
-            connection.query(queryString, function(err, rows) {
+        } else {
+            this.connection.query(queryString, function(err, rows) {
                 if(err) {
-                    Logger.append('./logs/log.txt', err);
                     Logger.append('./logs/log.txt', 'QUERYSTRING: ' + queryString);
                     console.log("[MYSQL] Error: Query: ".red + queryString + ", was not successful".red);
                 }
                 if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {
                     console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
                 }
-                connection.release();
                 callback(rows);
-            });
+                this.connection.end(function(err) {
+                    //
+                });
+            }.bind(this));
         }
-    });
+    }.bind(this));
 };
 
 module.exports = Connection;

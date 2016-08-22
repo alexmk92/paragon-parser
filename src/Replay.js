@@ -6,7 +6,7 @@ var Connection = require('./Connection');
 var conf = require('../conf.js');
 var request = require('request');
 
-var conn = new Connection();
+//var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
 var LOG_FILE = './logs/log.txt';
 
@@ -32,6 +32,7 @@ var Replay = function(db, replayId, checkpointTime, attempts, queue) {
  */
 
 Replay.prototype.parseDataAtCheckpoint = function() {
+    var conn = new Connection();
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
         if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
@@ -893,6 +894,7 @@ Replay.prototype.getFileHandle = function() {
  */
 
 Replay.latest = function(flag, live, recordFrom) {
+    var conn = new Connection();
     var url = REPLAY_URL + '/replay/v2/replay';
     if(typeof flag !== 'undefined' && flag !== null) {
         url += '?user=flag_' + flag;
@@ -995,15 +997,6 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
         towerKills: [], // {killer: 'bobby', timestamp: '' }   (just do the ?group=towerKills query as killer is in meta
         winningTeam: null
     };
-};
-
-/*
- * STATIC
- * Terminates the connection object
- */
-
-Replay.killConnections = function() {
-    if(conn) { conn.end(); }
 };
 
 /*
