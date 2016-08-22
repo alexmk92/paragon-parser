@@ -46,7 +46,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 
 Queue.prototype.getNextJob = function() {
     if(!fetching) {
-        console.log('fetching');
+        //console.log('fetching');
         fetching = true;
         var conn = new Connection();
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
@@ -68,7 +68,7 @@ Queue.prototype.getNextJob = function() {
             }
         }.bind(this));
     } else {
-        console.log('trying to fetch again in 0.1s');
+        //console.log('trying to fetch again in 0.1s');
         setTimeout(function() {
             this.getNextJob();
         }.bind(this), 100);
