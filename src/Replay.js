@@ -57,8 +57,9 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 // var liveString = data.isLive ? 'live' : 'not live';
                 // console.log('Replay: '.magenta + this.replayId + ' is currently '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
-                var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                conn.query(query, function() {});
+                // Shouldnt need this anymore, this was extremely expensive for SQL writes!
+                // var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
+                // conn.query(query, function() {});
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
