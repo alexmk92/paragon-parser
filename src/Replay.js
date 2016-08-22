@@ -364,7 +364,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     // Check for MMR
                                     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
-                                        console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
+                                        //console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
                                         resolve(matchDetails);
                                     }, function(err) {
                                         console.log('[REPLAY] Failed to get players ELO: '.red + err);

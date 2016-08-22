@@ -15,7 +15,6 @@ var Connection = function() {
 
 Connection.prototype.end = function() {
     this.connection.end(function (err) {
-        console.log("ENDED CONNECTION".blue);
         if(err) {
             console.log('[SQL] Failed to kill remaining connections in the queue'.red);
         }
@@ -24,7 +23,6 @@ Connection.prototype.end = function() {
 };
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
-    console.log('Running transaction: '.cyan + selectQuery);
     this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
@@ -82,7 +80,6 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
 };
 
 Connection.prototype.query = function(queryString, callback) {
-    console.log('Running query: '.cyan + queryString);
     this.connection.connect(function (err) {
         if(err) {
             Logger.append('./logs/log.txt', err);
