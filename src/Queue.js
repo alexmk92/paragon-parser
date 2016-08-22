@@ -8,6 +8,9 @@ var fs = require('fs');
 //var conn = null;
 var LOG_FILE = './logs/log.txt';
 
+// determines if another worker is already fetching a job
+var fetching = false;
+
 var Queue = function(db, workers) {
     this.mongoconn = db; // If null, couldn't connect
 
@@ -27,9 +30,7 @@ var Queue = function(db, workers) {
     // Reserve resource
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
-        setTimeout(function() {
-            this.getNextJob();
-        }.bind(this), (100 * i));
+        this.getNextJob();
     }
 };
 
@@ -44,24 +45,34 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function() {
-    var conn = new Connection();
-    //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
+    if(!fetching) {
+        console.log('fetching');
+        fetching = true;
+        var conn = new Connection();
+        //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
 
-    // Set the priority on the queue back to 0 once we start working it
-    //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-    var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-    var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
+        // Set the priority on the queue back to 0 once we start working it
+        //var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+        var selectQuery = 'SELECT * FROM queue WHERE reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+        var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
 
-    conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-        if(typeof replay !== 'undefined' && replay !== null) {
-            this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-        } else {
-            // we dont want to spam requests to get jobs if the queue is empty
-            setTimeout(function() {
-                this.getNextJob();
-            }.bind(this), 500);
-        }
-    }.bind(this));
+        conn.selectUpdate(selectQuery, updateQuery, function(replay) {
+            fetching = false;
+            if(typeof replay !== 'undefined' && replay !== null) {
+                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+            } else {
+                // we dont want to spam requests to get jobs if the queue is empty
+                setTimeout(function() {
+                    this.getNextJob();
+                }.bind(this), 500);
+            }
+        }.bind(this));
+    } else {
+        console.log('trying to fetch again in 0.5s');
+        setTimeout(function() {
+            this.getNextJob();
+        }.bind(this), 500);
+    }
 };
 
 Queue.prototype.runTask = function(replay) {
