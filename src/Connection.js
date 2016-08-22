@@ -15,10 +15,9 @@ var Connection = function() {
 
 Connection.prototype.end = function() {
     this.connection.end(function (err) {
+        console.log("ENDED CONNECTION".blue);
         if(err) {
             console.log('[SQL] Failed to kill remaining connections in the queue'.red);
-        } else {
-            console.log('[SQL] Killed all connections in the pool.'.green);
         }
         // all connections in the pool have ended
     });
@@ -41,7 +40,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                             this.connection.rollback(function() {
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
                             });
-                            this.connection.end();
+                            this.end();
                             callback(null);
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
@@ -52,7 +51,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                         this.connection.rollback(function() {
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                         });
-                                        this.connection.end();
+                                        this.end();
                                         callback(null);
                                     } else {
                                         this.connection.commit(function(err) {
@@ -60,17 +59,17 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                 this.connection.rollback(function() {
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
                                                 });
-                                                this.connection.end();
+                                                this.end();
                                                 callback(null);
                                             } else {
-                                                this.connection.end();
+                                                this.end();
                                                 callback(replay);
                                             }
                                         }.bind(this))
                                     }
                                 }.bind(this));
                             } else{
-                                this.connection.end();
+                                this.end();
                                 callback(null);
                             }
                         }
@@ -96,9 +95,7 @@ Connection.prototype.query = function(queryString, callback) {
                     console.log('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
                 }
                 callback(rows);
-                this.connection.end(function(err) {
-                    //
-                });
+                this.end();
             }.bind(this));
         }
     }.bind(this));

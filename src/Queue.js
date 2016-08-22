@@ -5,18 +5,19 @@ var colors = require('colors');
 var assert = require('assert');
 var fs = require('fs');
 
-var conn = null;
+//var conn = null;
 var LOG_FILE = './logs/log.txt';
 
 var Queue = function(db, workers) {
     this.mongoconn = db; // If null, couldn't connect
 
     this.maxWorkers = workers || 40;
-    conn = new Connection(workers || 40);
+    //conn = new Connection(workers || 40);
 
     setInterval(function() {
         this.disposeOfLockedReservedEvents();
-    }.bind(this), 180000);
+
+    }.bind(this), 360000);
 
     this.initializeWorkers();
 };
@@ -38,7 +39,7 @@ Queue.prototype.initializeWorkers = function() {
 
 Queue.prototype.disposeOfLockedReservedEvents = function() {
     var conn = new Connection();
-    var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 3';
+    var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 6';
     conn.query(query, function() {});
 };
 
@@ -58,7 +59,7 @@ Queue.prototype.getNextJob = function() {
             // we dont want to spam requests to get jobs if the queue is empty
             setTimeout(function() {
                 this.getNextJob();
-            }.bind(this), 100);
+            }.bind(this), 500);
         }
     }.bind(this));
 };
