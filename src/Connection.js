@@ -39,27 +39,30 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                 } else {
                     connection.query(selectQuery, function(err, result) {
                         if(err) {
-                            callback(null);
-                            return connection.rollback(function() {
+                            connection.rollback(function() {
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
                             });
+                            connection.release();
+                            callback(null);
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
                                 var replay = result[0];
                                 updateQuery += ' WHERE replayId= "' + replay.replayId + '"';
                                 connection.query(updateQuery, function(err, result) {
                                     if(err) {
-                                        callback(null);
-                                        return connection.rollback(function() {
+                                        connection.rollback(function() {
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                         });
+                                        connection.release();
+                                        callback(null);
                                     } else {
                                         connection.commit(function(err) {
                                             if(err) {
-                                                callback(null);
-                                                return connection.rollback(function() {
+                                                connection.rollback(function() {
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
                                                 });
+                                                connection.release();
+                                                callback(null);
                                             } else {
                                                 connection.release();
                                                 callback(replay);
