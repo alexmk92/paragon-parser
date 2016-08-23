@@ -48,7 +48,7 @@ Queue.prototype.getNextJob = function() {
     // by making too many requests!
     if(!fetching && this.workers.length < this.maxWorkers) {
         //console.log('fetching');
-        fetching = true;
+        //fetching = true;
         var conn = new Connection();
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
 
