@@ -32,7 +32,7 @@ Queue.prototype.initializeWorkers = function() {
         // offset each request so that we don't spike our CPU too much on our small 512Mb boxes
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), (i * 50));
+        }.bind(this), (i * 5));
     }
 };
 
