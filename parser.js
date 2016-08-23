@@ -1,17 +1,26 @@
+var config  = require('./conf.js');
+
+if(config.PROFILING) {
+    require('newrelic');
+}
+
 var Queue = require('./src/Queue');
 var Logger = require('./src/Logger');
 var Replay = require('./src/Replay');
 var async = require('async.js');
 var colors = require('colors');
 var cluster = require('cluster');
-var config  = require('./conf.js');
 var MongoClient = require('mongodb').MongoClient;
 
-if(config.PROFILING) {
-    require('newrelic');
+//var url = 'mongodb://' + config.MONGO_HOST + '/' + config.MONGO_DATABASE;
+
+var url = '';
+if(config.MONGO_URI !== null) {
+    url = config.MONGO_URI;
+} else {
+    url = 'mongodb://' + config.MONGO_HOST + '/' + config.MONGO_DATABASE;
 }
 
-var url = 'mongodb://' + config.MONGO_HOST + '/' + config.MONGO_DATABASE;
 var mongodb = null;
 var queue   = null;
 var workers = 1;
@@ -37,6 +46,12 @@ process.on('uncaughtException', function (err) {
 
 MongoClient.connect(url, function(err, db) {
     mongodb = db;
+    if(err) {
+        console.log(err);
+    }
+    if(db) {
+        console.log("successful");
+    }
     if(cluster.isMaster) {
 
         cluster.fork();
