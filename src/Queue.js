@@ -77,6 +77,9 @@ Queue.prototype.getNextJob = function() {
 };
 
 Queue.prototype.runTask = function(replay) {
+    console.log('[QUEUE] Running work for Replay: '.green + replay.replayId);
+    replay.parseDataAtCheckpoint();
+    /*
     var found = false;
     this.workers.some(function(workerId) {
         found = workerId === replay.replayId;
@@ -91,6 +94,7 @@ Queue.prototype.runTask = function(replay) {
         console.log('[QUEUE] Another worker on this box is already running work for replay: '.yellow + replay.replayId + '. Fetching new job.'.yellow);
         this.getNextJob();
     }
+    */
 };
 
 /*
@@ -99,6 +103,8 @@ Queue.prototype.runTask = function(replay) {
 
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
+        resolve();
+        /*
         if(!removing) {
             removing = true;
             var index = -1;
@@ -118,6 +124,7 @@ Queue.prototype.workerDone = function(replay) {
             // Wait for the lock to release so we can remove a resource
             reject();
         }
+        */
     }.bind(this));
 };
 
