@@ -48,7 +48,7 @@ Queue.prototype.getNextJob = function() {
     // by making too many requests!
     if(!fetching && this.workers.length < this.maxWorkers) {
         //console.log('fetching');
-        //fetching = true;
+        fetching = true;
         var conn = new Connection();
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
 
@@ -65,14 +65,14 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 200);
+                }.bind(this), 150);
             }
         }.bind(this));
     } else {
-        //console.log('trying to fetch again in 0.2s');
+        //console.log('trying to fetch again in 0.15s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 200);
+        }.bind(this), 150);
     }
 };
 
@@ -100,7 +100,7 @@ Queue.prototype.runTask = function(replay) {
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
         if(!removing) {
-            //removing = true;
+            removing = true;
             var index = -1;
             this.workers.some(function(workerId, i) {
                 if(workerId === replay.replayId) {
