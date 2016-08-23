@@ -27,11 +27,12 @@ var Queue = function(db, workers) {
 };
 
 // Start up the workers
-    // Select a job from the queue thats not reserved and not in the future
-    // Reserve resource
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
-        this.getNextJob();
+        // offset each request so that we don't spike our CPU too much on our small 512Mb boxes
+        setTimeout(function() {
+            this.getNextJob();
+        }.bind(this), (i * 50));
     }
 };
 
@@ -46,6 +47,8 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function() {
+    // Keep trying to get the next job every 0.25s, this is so we don't spike memory usage on our little 512MB boxes
+    // by making too many requests!
     if(!fetching && this.workers.length < this.maxWorkers) {
         //console.log('fetching');
         fetching = true;
@@ -53,8 +56,8 @@ Queue.prototype.getNextJob = function() {
         //console.log('[QUEUE] Fetching next item to run on queue...'.cyan);
 
         // Set the priority on the queue back to 0 once we start working it
+        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
         var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
         var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
 
         conn.selectUpdate(selectQuery, updateQuery, function(replay) {
@@ -65,30 +68,30 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 25);
+                }.bind(this), 200);
             }
         }.bind(this));
     } else {
-        //console.log('trying to fetch again in 0.1s');
+        //console.log('trying to fetch again in 0.2s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 25);
+        }.bind(this), 200);
     }
 };
 
 Queue.prototype.runTask = function(replay) {
     var found = false;
-    this.workers.some(function(worker) {
-        found = worker.replayId === replay.replayId;
+    this.workers.some(function(workerId) {
+        found = workerId === replay.replayId;
         return found;
     });
 
     if(!found) {
-        this.workers.push(replay);
+        this.workers.push(replay.replayId);
         console.log('[QUEUE] Running work for Replay: '.green + replay.replayId);
         replay.parseDataAtCheckpoint();
     } else {
-        console.log('[QUEUE] Another worker on this box is already running work for replay: '.red + replay.replayId + '. Fetching new job.'.red);
+        console.log('[QUEUE] Another worker on this box is already running work for replay: '.yellow + replay.replayId + '. Fetching new job.'.yellow);
         this.getNextJob();
     }
 };
@@ -102,8 +105,8 @@ Queue.prototype.workerDone = function(replay) {
         if(!removing) {
             removing = true;
             var index = -1;
-            this.workers.some(function(worker, i) {
-                if(worker.replayId === replay.replayId) {
+            this.workers.some(function(workerId, i) {
+                if(workerId === replay.replayId) {
                     index = i;
                     return true;
                 }
@@ -115,7 +118,7 @@ Queue.prototype.workerDone = function(replay) {
             }
             resolve();
         } else {
-            console.log('[QUEUE] There is a lock, someone was already removing!'.red);
+            // Wait for the lock to release so we can remove a resource
             reject();
         }
     }.bind(this));
