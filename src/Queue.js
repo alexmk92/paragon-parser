@@ -29,10 +29,7 @@ var Queue = function(db, workers) {
 // Start up the workers
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
-        // offset each request so that we don't spike our CPU too much on our small 512Mb boxes
-        setTimeout(function() {
-            this.getNextJob();
-        }.bind(this), (i * 5));
+        this.getNextJob();
     }
 };
 
