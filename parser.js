@@ -7,6 +7,10 @@ var cluster = require('cluster');
 var config  = require('./conf.js');
 var MongoClient = require('mongodb').MongoClient;
 
+if(config.PROFILING) {
+    require('newrelic');
+}
+
 var url = 'mongodb://' + config.MONGO_HOST + '/' + config.MONGO_DATABASE;
 var mongodb = null;
 var queue   = null;

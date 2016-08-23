@@ -5,5 +5,6 @@ module.exports = {
     PASSWORD: '',
     MONGO_HOST: '',
     MONGO_DATABASE: '',
-    PGG_HOST: ''
+    PGG_HOST: '',
+    PROFILING: false
 };

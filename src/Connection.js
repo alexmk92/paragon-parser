@@ -36,7 +36,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                 } else {
                     this.connection.query(selectQuery, function(err, result) {
                         if(err) {
-                            console.log('got a deadlock at select!'.red);
+                            //console.log('got a deadlock at select!'.red);
                             this.connection.rollback(function() {
                                 console.log("[MYSQL] Error: Rolled back transaction at SELECT! ".red + err);
                             });
@@ -45,10 +45,10 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
                                 var replay = result[0];
-                                updateQuery += ' WHERE replayId= "' + replay.replayId + '"';
+                                updateQuery += ' WHERE replayId= "' + replay.replayId + '" AND reserved=false';
                                 this.connection.query(updateQuery, function(err, result) {
                                     if(err) {
-                                        console.log('got a deadlock at update!'.red);
+                                        //console.log('got a deadlock at update!'.red);
                                         this.connection.rollback(function() {
                                             console.log("[MYSQL] Error: Rolled back transaction at UPDATE! ".red + err);
                                         });
@@ -57,7 +57,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                     } else {
                                         this.connection.commit(function(err) {
                                             if(err) {
-                                                console.log('got a deadlock at commit!'.red);
+                                                //console.log('got a deadlock at commit!'.red);
                                                 this.connection.rollback(function() {
                                                     console.log("[MYSQL] Error: Rolled back transaction at COMMIT! ".red + err);
                                                 });
@@ -65,7 +65,12 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                                                 callback(null);
                                             } else {
                                                 this.end();
-                                                callback(replay);
+                                                if(typeof result !== 'undefined' && result && result.changedRows > 0) {
+                                                    callback(replay);
+                                                } else {
+                                                    console.log('[QUEUE] Replay:'.red + replay.replayId + ' is already reserved!'.red);
+                                                    callback(null);
+                                                }
                                             }
                                         }.bind(this))
                                     }
