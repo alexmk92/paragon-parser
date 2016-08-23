@@ -100,7 +100,7 @@ Queue.prototype.runTask = function(replay) {
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
         if(!removing) {
-            removing = true;
+            //removing = true;
             var index = -1;
             this.workers.some(function(workerId, i) {
                 if(workerId === replay.replayId) {
