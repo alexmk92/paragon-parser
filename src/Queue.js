@@ -14,9 +14,6 @@ var removing = false;
 
 var Queue = function(db, workers) {
     this.mongoconn = db; // If null, couldn't connect
-
-    console.log("DB:");
-    console.log(db);
     this.maxWorkers = workers || 40;
     this.workers = [];
     //conn = new Connection(workers || 40);

@@ -47,10 +47,7 @@ process.on('uncaughtException', function (err) {
 MongoClient.connect(url, function(err, db) {
     mongodb = db;
     if(err) {
-        console.log(err);
-    }
-    if(db) {
-        console.log("successful");
+        console.log('[MONGODB] Error connecting to MongoDB'.red, err);
     }
     if(cluster.isMaster) {
 
