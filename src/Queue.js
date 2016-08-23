@@ -47,7 +47,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function() {
-    if(!fetching) {
+    if(!fetching && this.workers.length < this.maxWorkers) {
         //console.log('fetching');
         fetching = true;
         var conn = new Connection();
@@ -66,14 +66,14 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 100);
+                }.bind(this), 25);
             }
         }.bind(this));
     } else {
         //console.log('trying to fetch again in 0.1s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 100);
+        }.bind(this), 25);
     }
 };
 
