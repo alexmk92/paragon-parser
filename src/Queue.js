@@ -44,7 +44,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 };
 
 Queue.prototype.getNextJob = function() {
-    // Keep trying to get the next job every 0.25s, this is so we don't spike memory usage on our little 512MB boxes
+    // Keep trying to get the next job every 0.05s, this is so we don't spike memory usage on our little 512MB boxes
     // by making too many requests!
     if(!fetching && this.workers.length < this.maxWorkers) {
         //console.log('fetching');
@@ -65,21 +65,18 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 10);
+                }.bind(this), 50);
             }
         }.bind(this));
     } else {
         //console.log('trying to fetch again in 0.15s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 10);
+        }.bind(this), 50);
     }
 };
 
 Queue.prototype.runTask = function(replay) {
-    console.log('[QUEUE] Running work for Replay: '.green + replay.replayId);
-    replay.parseDataAtCheckpoint();
-    /*
     var found = false;
     this.workers.some(function(workerId) {
         found = workerId === replay.replayId;
@@ -94,7 +91,6 @@ Queue.prototype.runTask = function(replay) {
         console.log('[QUEUE] Another worker on this box is already running work for replay: '.yellow + replay.replayId + '. Fetching new job.'.yellow);
         this.getNextJob();
     }
-    */
 };
 
 /*
@@ -103,8 +99,6 @@ Queue.prototype.runTask = function(replay) {
 
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
-        resolve();
-        /*
         if(!removing) {
             removing = true;
             var index = -1;
@@ -124,7 +118,6 @@ Queue.prototype.workerDone = function(replay) {
             // Wait for the lock to release so we can remove a resource
             reject();
         }
-        */
     }.bind(this));
 };
 
