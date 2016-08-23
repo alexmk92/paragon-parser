@@ -106,7 +106,6 @@ Queue.prototype.workerDone = function(replay) {
             this.workers.some(function(worker, i) {
                 if(worker.replayId === replay.replayId) {
                     index = i;
-                    console.log('index is: ' + index);
                     return true;
                 }
                 return false;
