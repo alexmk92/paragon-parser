@@ -45,7 +45,7 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
                         } else {
                             if(typeof result !== 'undefined' && result && result.length > 0) {
                                 var replay = result[0];
-                                updateQuery += ' WHERE replayId= "' + replay.replayId + '" AND reserved=false';
+                                updateQuery += ' WHERE replayId= "' + replay.replayId;
                                 this.connection.query(updateQuery, function(err, result) {
                                     if(err) {
                                         //console.log('got a deadlock at update!'.red);
