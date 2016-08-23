@@ -32,15 +32,12 @@ var Replay = function(db, replayId, checkpointTime, attempts, queue) {
  */
 
 Replay.prototype.parseDataAtCheckpoint = function() {
-    var conn = new Connection();
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
         // if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
         //     this.queueManager.removeDeadReplay(this);
         //     return;
         // }
-
-        // check if ELO has been set, if not we'll
 
         // Get the header and check if the game has actually finished
         // TODO Optimise so if the game status is false then we dont waste API requests
@@ -56,10 +53,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 }
                 //var liveString = data.isLive ? 'live' : 'not live';
                 //console.log('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
-
-                // Shouldnt need this anymore, this was extremely expensive for SQL writes!
-                // var query = 'UPDATE queue SET checkpointTime=' + this.replayJSON.newCheckpointTime + ' WHERE replayId="' + this.replayId + '"';
-                // conn.query(query, function() {});
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
@@ -74,25 +67,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     this.replayJSON.players = matchInfo.players;
                                     this.replayJSON.gameType = matchInfo.gameType;
                                     this.replayJSON.isFeatured = matchInfo.isFeatured;
-
-                                    /*
-                                    if(this.replayJSON.isLive === true) {
-                                        this.mongoconn.collection('matches').update(
-                                            { replayId: this.replayId },
-                                            { $set: this.replayJSON },
-                                            { upsert: true},
-                                            function(err, results) {
-                                                if(err) {
-                                                    console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                    this.queueManager.failed(this);
-                                                } else {
-                                                    // schedule for later
-                                                    console.log('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
-                                                    this.queueManager.schedule(this, 60000);
-                                                }
-                                            }.bind(this));
-                                    }
-                                    */
                                     console.log('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
                                     this.queueManager.schedule(this, 60000);
                                 }.bind(this), function(isBotGame) {
@@ -109,7 +83,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     }
                 } else if(checkpoint.code === 1 && data.isLive === true) {
                     // Schedule the queue to come back to this item in 1 minute
-                    //console.log('up to date');
                     this.queueManager.schedule(this, 60000);
                 } else {
                     if(checkpoint.code === 0) {
@@ -148,26 +121,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                         if(newPlayers !== null) {
                                             this.replayJSON.players = newPlayers;
                                         }
-                                        //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                                        /*
-                                        if(this.replayJSON.isLive === true) {
-                                            this.mongoconn.collection('matches').update(
-                                                { replayId: this.replayId },
-                                                { $set: this.replayJSON },
-                                                { upsert: true},
-                                                function(err, results) {
-                                                    if(err) {
-                                                        console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                        this.queueManager.failed(this);
-                                                    } else {
-                                                        //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
-                                                        this.parseDataAtCheckpoint();
-                                                    }
-                                                }.bind(this));
-                                        } else {
-                                            this.parseDataAtCheckpoint();
-                                        }
-                                        */
                                         this.parseDataAtCheckpoint();
                                     }.bind(this));
                                 }.bind(this));
@@ -207,26 +160,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     if(newPlayers !== null) {
                                         this.replayJSON.players = newPlayers;
                                     }
-                                    //fs.writeFileSync('./out/replays/' + this.replayId + '.json', JSON.stringify(this.replayJSON));
-                                    /*
-                                    if(this.replayJSON.isLive === true) {
-                                        this.mongoconn.collection('matches').update(
-                                            { replayId: this.replayId },
-                                            { $set: this.replayJSON },
-                                            { upsert: true},
-                                            function(err, results) {
-                                                if(err) {
-                                                    console.log('[REPLAY] Failed to update replay: '.red + this.replayId);
-                                                    this.queueManager.failed(this);
-                                                } else {
-                                                    //console.log('Replay: '.yellow + this.replayId + ' was successfully updated');
-                                                    this.parseDataAtCheckpoint();
-                                                }
-                                            }.bind(this));
-                                    } else {
-                                        this.parseDataAtCheckpoint();
-                                    }
-                                    */
                                     this.parseDataAtCheckpoint();
                                 }.bind(this));
                             }.bind(this));
@@ -242,8 +175,6 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         }.bind(this));
                     } 
                 }
-
-
             }.bind(this)).catch(function(err) {
                 var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
                 Logger.append(LOG_FILE, error);
@@ -464,40 +395,6 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 }
             }
         });
-        /*
-        requestify.request(url, {
-            method: 'POST',
-            body: { players: players, matchId: matchId },
-            dataType: 'json',
-            headers: {
-                'Content-Type' : 'application/json'
-            }
-        }).then(function(response) {
-            //console.log('the response was: ', response);
-            if(response.hasOwnProperty('body') && response.body.length > 0 && response.code === 200) {
-                response.body = JSON.parse(response.body);
-                var newPlayers = [];
-                players.forEach(function(player) {
-                    response.body.some(function(playerElo) {
-                        if(playerElo.accountId === player.accountId) {
-                            player.elo = playerElo.elo;
-                            newPlayers.push(player);
-                            return true;
-                        }
-                        return false;
-                    });
-                });
-                resolve(newPlayers);
-            } else {
-                console.log('Error: Sent request for match: '.red, data);
-                reject(response);
-            }
-        }.bind(this), function(err) {
-            //console.log('Error when getting player ELO: '.red, err);
-            console.log('Error: Sent request for match: '.red + matchId);
-            reject(err);
-        });
-        */
     }.bind(this));
 };
 
@@ -812,6 +709,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
  * Given an ID from getHeroKillsAtCheckpoint we get the killer and killer from
  * this endpoint
  */
+
 Replay.prototype.getDataForHeroKillId = function(id) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event/' + id;
     return requestify.get(url).then(function (response) {
@@ -839,7 +737,7 @@ Replay.prototype.getDataForHeroKillId = function(id) {
  * CODE VALUES:
  * 0 = Another chunk should be taken after this one
  * 1 = Reschedule the scheduler for 3 minutes
- * 2 = There was an error, delete this?
+ * 2 = There was an error, tell queue manager it failed!
  */
 
 Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
@@ -1034,6 +932,31 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
 
 /*
  * STATIC
+ * Returns an empty player JSON object for each player we retrieve
+ */
+
+Replay.getEmptyPlayerObject = function() {
+    return {
+        team: 0,
+        hero: null,
+        username: null,  // get the user id here
+        accountId: null, // get this from /replay/{streamId}/users in the users object at index i
+        damageToTowers: 0,
+        damageToHeroes: 0,
+        damageToJungle: 0,
+        damageToMinions: 0,
+        damageToHarvesters: 0,
+        damageToInhibitors: 0,
+        heroLevel: 0,
+        deaths: 0,
+        assists: 0,
+        towerLastHits: 0,
+        elo: 0
+    }
+};
+
+/*
+ * STATIC
  * Checks if a bot was in the game
  */
 
@@ -1060,31 +983,6 @@ Replay.isBot = function(playerName) {
         case 'BLUE_TWINBLAST': return true; case 'RED_TWINBLAST': return true;
         case 'BLUE_FEY': return true; case 'RED_FEY': return true;
         default: return false;
-    }
-};
-
-/*
- * STATIC
- * Returns an empty player JSON object for each player we retrieve
- */
-
-Replay.getEmptyPlayerObject = function() {
-    return {
-        team: 0,
-        hero: null,
-        username: null,  // get the user id here
-        accountId: null, // get this from /replay/{streamId}/users in the users object at index i
-        damageToTowers: 0,
-        damageToHeroes: 0,
-        damageToJungle: 0,
-        damageToMinions: 0,
-        damageToHarvesters: 0,
-        damageToInhibitors: 0,
-        heroLevel: 0,
-        deaths: 0,
-        assists: 0,
-        towerLastHits: 0,
-        elo: 0
     }
 };
 
