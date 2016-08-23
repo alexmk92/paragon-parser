@@ -63,16 +63,16 @@ Queue.prototype.getNextJob = function() {
                 this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
             } else {
                 // we dont want to spam requests to get jobs if the queue is empty
-                setTimeout(function() {
+                //setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 150);
+                //}.bind(this), 150);
             }
         }.bind(this));
     } else {
         //console.log('trying to fetch again in 0.15s');
-        setTimeout(function() {
+        //setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 150);
+        //}.bind(this), 150);
     }
 };
 
@@ -149,9 +149,9 @@ Queue.prototype.failed = function(replay) {
         }.bind(this));
     }.bind(this), function() {
         removing = false;
-        setTimeout(function() {
+        //setTimeout(function() {
             this.workerDone(replay);
-        }.bind(this), 100)
+        //}.bind(this), 100)
     }.bind(this));
 
 };
@@ -175,9 +175,9 @@ Queue.prototype.schedule = function(replay, ms) {
         }.bind(this));
     }.bind(this), function() {
         removing = false;
-        setTimeout(function() {
+        //setTimeout(function() {
             this.workerDone(replay);
-        }.bind(this), 100)
+        //}.bind(this), 100)
     }.bind(this));
 
 };
@@ -206,9 +206,9 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         }.bind(this));
     }.bind(this), function() {
         removing = false;
-        setTimeout(function() {
+        //setTimeout(function() {
             this.workerDone(replay);
-        }.bind(this), 100)
+        //}.bind(this), 100)
     }.bind(this));
 
 };
@@ -231,9 +231,9 @@ Queue.prototype.removeDeadReplay = function(replay) {
         }.bind(this));
     }.bind(this), function() {
         removing = false;
-        setTimeout(function() {
+        //setTimeout(function() {
             this.workerDone(replay);
-        }.bind(this), 100)
+        //}.bind(this), 100)
     }.bind(this));
 
 };
@@ -255,9 +255,9 @@ Queue.prototype.removeBotGame = function(replay) {
         }.bind(this));
     }.bind(this), function() {
         removing = false;
-        setTimeout(function() {
+        //setTimeout(function() {
             this.workerDone(replay);
-        }.bind(this), 100)
+        //}.bind(this), 100)
     }.bind(this));
 
 };
