@@ -167,7 +167,7 @@ Queue.prototype.schedule = function(replay, ms) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + ms);
         console.log('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
-        var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.newCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(replay, function() {
                 this.getNextJob();
@@ -195,7 +195,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         this.uploadFile(replay, function(err) {
             if(err === null) {
                 console.log('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
-                var query = 'UPDATE queue SET priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.newCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+                var query = 'UPDATE queue SET priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
                 conn.query(query, function() {});
                 this.getNextJob();
             } else {

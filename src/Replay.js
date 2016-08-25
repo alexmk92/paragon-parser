@@ -34,7 +34,7 @@ var Replay = function(db, replayId, checkpointTime, attempts, queue) {
 Replay.prototype.parseDataAtCheckpoint = function() {
     // Get a handle on the old file:
     this.getFileHandle().then(function() {
-        // if(this.replayJSON.isLive === false && this.replayJSON.lastCheckpointTime === this.replayJSON.newCheckpointTime && this.replayJSON.winningTeam !== null) {
+        // if(this.replayJSON.isLive === false && this.replayJSON.previousCheckpointTime === this.replayJSON.latestCheckpointTime && this.replayJSON.winningTeam !== null) {
         //     this.queueManager.removeDeadReplay(this);
         //     return;
         // }
@@ -46,13 +46,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
             this.replayJSON.startedAt = new Date(data.startedAt);
 
             // Keep getting the latest check point
-            this.getNextCheckpoint(this.replayJSON.newCheckpointTime).then(function(checkpoint) {
-                if(typeof checkpoint.lastCheckpointTime !== 'undefined' && typeof checkpoint.currentCheckpointTime !== 'undefined') {
-                    this.replayJSON.lastCheckpointTime = checkpoint.lastCheckpointTime;
-                    this.replayJSON.newCheckpointTime = checkpoint.currentCheckpointTime;
+            this.getNextCheckpoint(this.replayJSON.latestCheckpointTime).then(function(checkpoint) {
+                if(typeof checkpoint.previousCheckpointTime !== 'undefined' && typeof checkpoint.currentCheckpointTime !== 'undefined') {
+                    this.replayJSON.previousCheckpointTime = checkpoint.previousCheckpointTime;
+                    this.replayJSON.latestCheckpointTime = checkpoint.currentCheckpointTime;
                 }
                 //var liveString = data.isLive ? 'live' : 'not live';
-                //console.log('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.newCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                //console.log('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
@@ -93,7 +93,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 this.replayJSON.gameType = matchInfo.gameType;
                                 this.replayJSON.isFeatured = matchInfo.isFeatured;
 
-                                this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
+                                this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
                                     if(events.towerKills.length !== 0 || events.kills.length !== 0) {
                                         events.towerKills.forEach(function(towerKill) {
                                             var found = false;
@@ -108,13 +108,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                                         events.kills.forEach(function(kill) {
                                             var found = false;
-                                            if(this.replayJSON.kills.length > 0) {
-                                                this.replayJSON.kills.some(function(k) {
+                                            if(this.replayJSON.playerKills.length > 0) {
+                                                this.replayJSON.playerKills.some(function(k) {
                                                     found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
                                                     return found;
                                                 });
                                             }
-                                            if(!found) this.replayJSON.kills.push(kill);
+                                            if(!found) this.replayJSON.playerKills.push(kill);
                                         }.bind(this));
                                     }
                                     this.updatePlayerStats().then(function(newPlayers) {
@@ -132,7 +132,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 }
                             }.bind(this));
                         } else {
-                            this.getEventFeedForCheckpoint(checkpoint.lastCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
+                            this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
                                 if(events.towerKills.length !== 0 || events.kills.length !== 0) {
                                     events.towerKills.forEach(function (towerKill) {
                                         var found = false;
@@ -147,13 +147,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                                     events.kills.forEach(function (kill) {
                                         var found = false;
-                                        if (this.replayJSON.kills.length > 0) {
-                                            this.replayJSON.kills.some(function (k) {
+                                        if (this.replayJSON.playerKills.length > 0) {
+                                            this.replayJSON.playerKills.some(function (k) {
                                                 found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
                                                 return found;
                                             });
                                         }
-                                        if (!found) this.replayJSON.kills.push(kill);
+                                        if (!found) this.replayJSON.playerKills.push(kill);
                                     }.bind(this));
                                 }
                                 this.updatePlayerStats().then(function(newPlayers) {
@@ -166,12 +166,16 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         }
                     } else if(checkpoint.code === 1 && this.maxCheckpointTime > 0) {
                         // Its finished lets get the match result
-                        this.getMatchResult().then(function(winningTeam) {
-                            this.replayJSON.winningTeam = winningTeam;
+                        this.getMatchResult().then(function(matchResult) {
+                            this.replayJSON.winningTeam = matchResult.winningTeam;
+                            this.replayJSON.gameLength = matchResult.gameLength;
                             this.replayJSON.isLive = false;
-                            this.replayJSON.lastCheckpointTime = this.replayJSON.newCheckpointTime;
+                            this.replayJSON.previousCheckpointTime = this.replayJSON.latestCheckpointTime;
                             //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
+                        }.bind(this), function(err) {
+                            console.log('[REPLAY] Error when getting match result: '.red + err);
+                            this.queueManager.failed(this);
                         }.bind(this));
                     } 
                 }
@@ -196,21 +200,52 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 /*
  * Gets the result of the match
  */
+
 Replay.prototype.getMatchResult = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
+    var matchLengthUrl = REPLAY_URL + '/replay/v2/replay?user=' + this.replayId;
 
-    return requestify.get(url).then(function(response) {
-        if (typeof response.body !== 'undefined' && response.body.length > 0) {
-            var data = JSON.parse(response.body);
-            if (data.hasOwnProperty('WinningTeam')) {
-                return data['WinningTeam'];
+    return new Promise(function(resolve, reject) {
+        var matchResult = {
+            winningTeam: null,
+            gameLength: 0
+        };
+
+        requestify.get(url).then(function(response) {
+            if (typeof response.body !== 'undefined' && response.body.length > 0) {
+                var data = JSON.parse(response.body);
+                if (data.hasOwnProperty('WinningTeam')) {
+                    matchResult.winningTeam = data.WinningTeam;
+                    requestify.get(matchLengthUrl).then(function(response) {
+                        var data = JSON.parse(response.body);
+                        if(data.hasOwnProperty('replays')) {
+                            if(data.replays[0].hasOwnProperty('DemoTimeInMS')) {
+                                matchResult.gameLength = data.replays[0].DemoTimeInMS;
+                                resolve(matchResult);
+                            } else {
+                                //console.log(data);
+                                Logger.log(LOG_FILE, 'DemoTimeInMS was not a valid property from call to: ' + matchLengthUrl + ' API may have changed');
+                                reject('DemoTimeInMS was not a valid property in getMatchResult.');
+                            }
+                        } else {
+                            Logger.log(LOG_FILE, 'replays was not a valid property from call to: ' + matchLengthUrl + ' API may have changed');
+                            reject('replays was not a valid property in getMatchResult.');
+                        }
+                    }, function(err) {
+                        reject(err);
+                    });
+                } else {
+                    Logger.log(LOG_FILE, 'WinningTeam was not a valid property from call to: ' + url + ' API may have changed');
+                    reject('WinningTeam was not a valid property in getMatchResult');
+                }
             }
-        }
-    }).catch(function(err) {
-        var error = 'Error in getMatchResult: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
-        this.queueManager.failed(this);
-    }.bind(this));
+        }, function(err) {
+            var error = 'Error in getMatchResult: ' + JSON.stringify(err);
+            Logger.append(LOG_FILE, error);
+            this.queueManager.failed(this);
+            reject(err);
+        }.bind(this));
+    });
 };
 
 /*
@@ -267,40 +302,40 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 var botsArray = [];
 
                                 // Remove bots from master array and store in temp array
-                                payload.data['UserDetails'].forEach(function(user, i) {
+                                payload.data.UserDetails.forEach(function(user, i) {
                                     var player = Replay.getEmptyPlayerObject();
                                     if(coop_ai || solo_ai) {
                                         if(Replay.isBot(user.Nickname)) {
                                             player.accountId = 'bot';
-                                            player.username = payload.data['UserDetails'][i].Nickname;
-                                            player.kills = payload.data['UserDetails'][i].HeroLastHits;
-                                            player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
-                                            player.deaths = payload.data['UserDetails'][i].Deaths;
-                                            player.assists = payload.data['UserDetails'][i].Assists;
-                                            player.heroLevel = payload.data['UserDetails'][i].Level;
-                                            player.team = payload.data['UserDetails'][i].Team;
-                                            player.hero = payload.data['UserDetails'][i].HeroName;
+                                            player.username = payload.data.UserDetails[i].Nickname;
+                                            player.kills = payload.data.UserDetails[i].HeroLastHits;
+                                            player.towerLastHits = payload.data.UserDetails[i].TowerLastHits;
+                                            player.deaths = payload.data.UserDetails[i].Deaths;
+                                            player.assists = payload.data.UserDetails[i].Assists;
+                                            player.heroLevel = payload.data.UserDetails[i].Level;
+                                            player.team = payload.data.UserDetails[i].Team;
+                                            player.hero = payload.data.UserDetails[i].HeroName;
                                             botsArray.push(player);
                                         } else {
-                                            player.username = payload.data['UserDetails'][i].Nickname;
-                                            player.kills = payload.data['UserDetails'][i].HeroLastHits;
-                                            player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
-                                            player.deaths = payload.data['UserDetails'][i].Deaths;
-                                            player.assists = payload.data['UserDetails'][i].Assists;
-                                            player.heroLevel = payload.data['UserDetails'][i].Level;
-                                            player.team = payload.data['UserDetails'][i].Team;
-                                            player.hero = payload.data['UserDetails'][i].HeroName;
+                                            player.username = payload.data.UserDetails[i].Nickname;
+                                            player.kills = payload.data.UserDetails[i].HeroLastHits;
+                                            player.towerLastHits = payload.data.UserDetails[i].TowerLastHits;
+                                            player.deaths = payload.data.UserDetails[i].Deaths;
+                                            player.assists = payload.data.UserDetails[i].Assists;
+                                            player.heroLevel = payload.data.UserDetails[i].Level;
+                                            player.team = payload.data.UserDetails[i].Team;
+                                            player.hero = payload.data.UserDetails[i].HeroName;
                                             playersArray.push(player);
                                         }
                                     } else {
-                                        player.username = payload.data['UserDetails'][i].Nickname;
-                                        player.kills = payload.data['UserDetails'][i].HeroLastHits;
-                                        player.towerLastHits = payload.data['UserDetails'][i].TowerLastHits;
-                                        player.deaths = payload.data['UserDetails'][i].Deaths;
-                                        player.assists = payload.data['UserDetails'][i].Assists;
-                                        player.heroLevel = payload.data['UserDetails'][i].Level;
-                                        player.team = payload.data['UserDetails'][i].Team;
-                                        player.hero = payload.data['UserDetails'][i].HeroName;
+                                        player.username = payload.data.UserDetails[i].Nickname;
+                                        player.kills = payload.data.UserDetails[i].HeroLastHits;
+                                        player.towerLastHits = payload.data.UserDetails[i].TowerLastHits;
+                                        player.deaths = payload.data.UserDetails[i].Deaths;
+                                        player.assists = payload.data.UserDetails[i].Assists;
+                                        player.heroLevel = payload.data.UserDetails[i].Level;
+                                        player.team = payload.data.UserDetails[i].Team;
+                                        player.hero = payload.data.UserDetails[i].HeroName;
                                         playersArray.push(player);
                                     }
                                 });
@@ -314,8 +349,6 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     // Check for MMR
-                                    resolve(matchDetails);
-                                    /*
                                     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
                                         //console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
@@ -324,7 +357,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                                         console.log('[REPLAY] Failed to get players ELO: '.red + err);
                                         this.queueManager.failed(this);
                                     }.bind(this));
-                                    */
                                 } else {
                                     reject(true);
                                 }
@@ -432,8 +464,8 @@ Replay.prototype.updatePlayerStats = function() {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 var data = JSON.parse(response.body);
                 if(data.hasOwnProperty('UserDetails')) {
-                    var startTime = this.replayJSON.lastCheckpointTime;
-                    var endTime = this.replayJSON.newCheckpointTime;
+                    var startTime = this.replayJSON.previousCheckpointTime;
+                    var endTime = this.replayJSON.latestCheckpointTime;
 
                     return this.getHeroDamageAtCheckpoint(startTime, endTime).then(function(allPlayerDamage) {
                         var newPlayers = this.replayJSON.players.map(function(player, i) {
@@ -441,9 +473,9 @@ Replay.prototype.updatePlayerStats = function() {
 
                             if(this.replayJSON.gameType === 'coop_ai' || this.replayJSON.gameType === 'solo_ai') {
                                 var playerData = null;
-                                for(var j = 0; j < data['UserDetails'].length; j++) {
-                                    if(player.username === data['UserDetails'][j].Nickname) {
-                                        playerData = data['UserDetails'][j];
+                                for(var j = 0; j < data.UserDetails.length; j++) {
+                                    if(player.username === data.UserDetails[j].Nickname) {
+                                        playerData = data.UserDetails[j];
                                     }
                                 }
                                 player.kills = playerData.HeroLastHits;
@@ -452,11 +484,11 @@ Replay.prototype.updatePlayerStats = function() {
                                 player.assists = playerData.Assists;
                                 player.heroLevel = playerData.Level;
                             } else {
-                                player.kills = data['UserDetails'][i].HeroLastHits;
-                                player.towerLastHits = data['UserDetails'][i].TowerLastHits;
-                                player.deaths = data['UserDetails'][i].Deaths;
-                                player.assists = data['UserDetails'][i].Assists;
-                                player.heroLevel = data['UserDetails'][i].Level;
+                                player.kills = data.UserDetails[i].HeroLastHits;
+                                player.towerLastHits = data.UserDetails[i].TowerLastHits;
+                                player.deaths = data.UserDetails[i].Deaths;
+                                player.assists = data.UserDetails[i].Assists;
+                                player.heroLevel = data.UserDetails[i].Level;
                             }
 
                             player.damageToHeroes = playerDamage.damageToHeroes;
@@ -525,22 +557,22 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
             var data = JSON.parse(response.body);
             if(data.hasOwnProperty('DamageList')) {
                 var damage = [];
-                data['DamageList'].forEach(function(damageEvent) {
+                data.DamageList.forEach(function(damageEvent) {
                     if(damage.length === 0) {
                         damage.push({
-                            username: damageEvent['DisplayName'],
-                            damageToHeroes: damageEvent['HeroDamageDealt'],
-                            damageToMinions: damageEvent['MinionDamageDealt'],
-                            damageToJungle: damageEvent['JungleMinionDamageDealt'],
-                            damageToTowers: damageEvent['TowerDamageDealt'],
-                            damageToHarvesters: damageEvent['RigDamageDealt'],
-                            damageToInhibitors: damageEvent['InhibitorDamageDealt']
+                            username: damageEvent.DisplayName,
+                            damageToHeroes: damageEvent.HeroDamageDealt,
+                            damageToMinions: damageEvent.MinionDamageDealt,
+                            damageToJungle: damageEvent.JungleMinionDamageDealt,
+                            damageToTowers: damageEvent.TowerDamageDealt,
+                            damageToHarvesters: damageEvent.RigDamageDealt,
+                            damageToInhibitors: damageEvent.InhibitorDamageDealt
                         });
                     } else {
                         var found = false;
                         var modIndex = -1;
                         damage.some(function(event, i) {
-                            if(damageEvent['DisplayName'] === event.username) {
+                            if(damageEvent.DisplayName === event.username) {
                                 modIndex = i;
                                 found = true;
                             }
@@ -548,21 +580,21 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
                         });
                         if(!found) {
                             damage.push({
-                                username: damageEvent['DisplayName'],
-                                damageToHeroes: damageEvent['HeroDamageDealt'],
-                                damageToMinions: damageEvent['MinionDamageDealt'],
-                                damageToJungle: damageEvent['JungleMinionDamageDealt'],
-                                damageToTowers: damageEvent['TowerDamageDealt'],
-                                damageToHarvesters: damageEvent['RigDamageDealt'],
-                                damageToInhibitors: damageEvent['InhibitorDamageDealt']
+                                username: damageEvent.DisplayName,
+                                damageToHeroes: damageEvent.HeroDamageDealt,
+                                damageToMinions: damageEvent.MinionDamageDealt,
+                                damageToJungle: damageEvent.JungleMinionDamageDealt,
+                                damageToTowers: damageEvent.TowerDamageDealt,
+                                damageToHarvesters: damageEvent.RigDamageDealt,
+                                damageToInhibitors: damageEvent.InhibitorDamageDealt
                             })
                         } else if(modIndex > -1) {
-                            damage[modIndex].damageToHeroes += damageEvent['HeroDamageDealt'];
-                            damage[modIndex].damageToMinions += damageEvent['MinionDamageDealt'];
-                            damage[modIndex].damageToJungle += damageEvent['JungleMinionDamageDealt'];
-                            damage[modIndex].damageToTowers += damageEvent['TowerDamageDealt'];
-                            damage[modIndex].damageToHarvesters += damageEvent['RigDamageDealt'];
-                            damage[modIndex].damageToInhibitors += damageEvent['InhibitorDamageDealt'];
+                            damage[modIndex].damageToHeroes += damageEvent.HeroDamageDealt;
+                            damage[modIndex].damageToMinions += damageEvent.MinionDamageDealt;
+                            damage[modIndex].damageToJungle += damageEvent.JungleMinionDamageDealt;
+                            damage[modIndex].damageToTowers += damageEvent.TowerDamageDealt;
+                            damage[modIndex].damageToHarvesters += damageEvent.RigDamageDealt;
+                            damage[modIndex].damageToInhibitors += damageEvent.InhibitorDamageDealt;
                         }
                     }
                 });
@@ -606,6 +638,7 @@ Replay.prototype.getReplaySummary = function() {
  * EP : /replay/v2/replay?user={replayId}
  * Gets info on the game, whether its live and the timestamp it started on
  */
+
 Replay.prototype.isGameLive = function() {
     return new Promise(function(resolve, reject) {
         var url = REPLAY_URL + '/replay/v2/replay?user=' + this.replayId;
@@ -663,7 +696,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('events')) {
                 events = data.events.map(function(event) {
-                   return { killer: event.meta, timestamp: event['time1'] };
+                   return { killer: event.meta, timestamp: event.time1 };
                 });
             }
         }
@@ -689,7 +722,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
             if (data.hasOwnProperty('events')) {
                 events = data.events.map(function(event) {
                     return this.getDataForHeroKillId(event.id).then(function(killInfo) {
-                        return { killer: killInfo.killer, killed: killInfo.killed, timestamp: event['time1'] };
+                        return { killer: killInfo.killer, killed: killInfo.killed, timestamp: event.time1 };
                     }.bind(this));
                 }.bind(this));
             }
@@ -740,35 +773,35 @@ Replay.prototype.getDataForHeroKillId = function(id) {
  * 2 = There was an error, tell queue manager it failed!
  */
 
-Replay.prototype.getNextCheckpoint = function(lastCheckpointTime) {
+Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
     var url = REPLAY_URL + '/replay/v2/replay/' + this.replayId + '/event?group=checkpoint';
 
     return requestify.get(url).then(function(response) {
-        var newCheckpointTime = response.getBody();
-        if(newCheckpointTime.hasOwnProperty('events') && newCheckpointTime.events.length > 0) {
-            newCheckpointTime = newCheckpointTime.events;
+        var latestCheckpointTime = response.getBody();
+        if(latestCheckpointTime.hasOwnProperty('events') && latestCheckpointTime.events.length > 0) {
+            latestCheckpointTime = latestCheckpointTime.events;
 
             // Set the JSON max check time directly
-            this.maxCheckpointTime = newCheckpointTime[newCheckpointTime.length-1]['time1'];
+            this.maxCheckpointTime = latestCheckpointTime[latestCheckpointTime.length-1].time1;
 
             // Now set our current cp time
             var found = false;
-            if(lastCheckpointTime > 0) {
-                newCheckpointTime.some(function(checkpoint) {
-                    if(checkpoint['time1'] > lastCheckpointTime) {
-                        newCheckpointTime = checkpoint['time1'];
+            if(previousCheckpointTime > 0) {
+                latestCheckpointTime.some(function(checkpoint) {
+                    if(checkpoint.time1 > previousCheckpointTime) {
+                        latestCheckpointTime = checkpoint.time1;
                         found = true;
                     }
                     return found;
                 });
             } else {
                 found = true;
-                newCheckpointTime = newCheckpointTime[0]['time1']
+                latestCheckpointTime = latestCheckpointTime[0].time1;
             }
 
             if(found) {
-                //console.log('new cp time is: '.green, newCheckpointTime);
-                return({ code: 0, lastCheckpointTime: lastCheckpointTime, currentCheckpointTime: newCheckpointTime });
+                //console.log('new cp time is: '.green, latestCheckpointTime);
+                return({ code: 0, previousCheckpointTime: previousCheckpointTime, currentCheckpointTime: latestCheckpointTime });
             } else {
                 return({ code: 1 });
             }
@@ -798,7 +831,7 @@ Replay.prototype.getFileHandle = function() {
                 } else if(doc !== null) {
                     if(doc.replayId === this.replayId) {
                         this.replayJSON = doc;
-                        delete this.replayJSON['_id'];
+                        delete this.replayJSON._id;
                     } else if(this.replayJSON === null) {
                         this.replayJSON = Replay.getEmptyReplayObject(this.replayId, this.checkpointTime);
                     }
@@ -919,12 +952,13 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
         replayId: replayId,
         startedAt: null,
         isFeatured: false,
-        lastCheckpointTime: checkpointTime,
-        newCheckpointTime: 0,
+        previousCheckpointTime: checkpointTime,
+        latestCheckpointTime: 0,
+        gameLength: 0,
         isLive: true, // pertains to Final / Active
         gameType: null, // get from /replay/{streamId}/users -- if flag_pvp = pvp, flag_coop = bot, flag_custom = custom
         players: [],
-        kills: [], //{ killer: 'bobby', killed: 'jane', timestamp: '' }
+        playerKills: [], //{ killer: 'bobby', killed: 'jane', timestamp: '' }
         towerKills: [], // {killer: 'bobby', timestamp: '' }   (just do the ?group=towerKills query as killer is in meta
         winningTeam: null
     };
