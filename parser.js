@@ -32,20 +32,8 @@ var mongodb = null;
 var queue   = null;
 var workers = process.env.WORKERS || 1;
 
-memcached.add('clearDeadReservedReplays', true, 30, function(err) {
-    if(err) {
-        Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
-    } else {
-        Logger.writeToConsole('[QUEUE] Dispose any locked events'.yellow);
-        Queue.disposeOfLockedReservedEvents(function() {
-            memcached.del('clearDeadReservedReplays', function(err) {
-                if(err) {
-                    Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 30 seconds.'.red);
-                }
-            });
-        });
-    }
-});
+// Generate a unique ID for this process so that we can identify it in MySQL
+var processId = process.pid + '_' + Math.random().toString(12).substr(2, 8);
 
 // Now start the app
 MongoClient.connect(url, function(err, db) {
@@ -53,7 +41,26 @@ MongoClient.connect(url, function(err, db) {
     if(err) {
         Logger.writeToConsole('[MONGODB] Error connecting to MongoDB'.red, err);
     } else {
-        Logger.writeToConsole('[PARSER] Building a queue with '.cyan + workers + ' workers'.cyan);
-        if(!queue) queue = new Queue(mongodb, workers);
+        Logger.writeToConsole('[PARSER] Process: ' + processId + ' is building a queue with '.cyan + workers + ' workers'.cyan);
+        if(!queue) queue = new Queue(mongodb, workers, processId);
     }
+});
+
+// If a process dies, dispose of its reserved events
+process.on('SIGINT', function() {
+    memcached.add('clearDeadReservedReplays', true, 10, function(err) {
+        if(err) {
+            Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
+            process.exit(err ? 1 : 0);
+        } else {
+            Queue.disposeOfLockedReservedEvents(processId, function() {
+                memcached.del('clearDeadReservedReplays', function(err) {
+                    if(err) {
+                        Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 10 seconds.'.red);
+                    }
+                    process.exit(err ? 1 : 0);
+                });
+            });
+        }
+    });
 });
