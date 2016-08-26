@@ -10,6 +10,7 @@ CREATE TABLE queue (
     completed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     scheduled TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     checkpointTime int DEFAULT 0,
+    reserved_by VARCHAR(24) DEFAULT null,
     live bool not null DEFAULT false,
     primary key (id)
 );
