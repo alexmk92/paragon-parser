@@ -6,7 +6,7 @@ var assert = require('assert');
 
 var fs = require('fs');
 var Memcached = require('memcached');
-var memcached = new Memcached('paragongg-cache.t4objd.cfg.use1.cache.amazonaws.com:11211');
+var memcached = new Memcached('paragongg-queue.t4objd.cfg.use1.cache.amazonaws.com:11211');
 
 // determines if another worker is already fetching a job
 //var fetching = false;
