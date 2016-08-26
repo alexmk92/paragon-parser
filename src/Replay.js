@@ -390,7 +390,7 @@ Replay.prototype.getPlayersAndGameType = function() {
  */
 
 Replay.prototype.getPlayersElo = function(players, matchId) {
-    // TODO Monitor if we continue to get request errors, if we don't then migrate all requestify calls to request
+    // TODO Migrate all requestify requests to request lib as its much more lightweight
     var url = process.env.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
         var options = {
