@@ -8,8 +8,6 @@ var request = require('request');
 
 //var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
-var LOG_FILE = './logs/log.txt';
-
 /*
  * Replay object manages which chunk of data we want to stream from the endpoint
  * it has one static method called latest which returns a list of replay ids
@@ -183,17 +181,13 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 }
             }.bind(this)).catch(function(err) {
                 var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-                Logger.append(LOG_FILE, error);
                 this.queueManager.failed(this);
             }.bind(this));
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
-                Logger.append(LOG_FILE, "The replay id: " + this.replayId + " has expired.");
-                //Logger.writeToConsole('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
                 Logger.writeToConsole('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
                 this.queueManager.removeItemFromQueue(this);
             } else {
-                //Logger.writeToConsole('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
                 Logger.writeToConsole('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
                 this.queueManager.failed(this);
             }
@@ -228,24 +222,20 @@ Replay.prototype.getMatchResult = function() {
                                 resolve(matchResult);
                             } else {
                                 //Logger.writeToConsole(data);
-                                Logger.log(LOG_FILE, 'DemoTimeInMS was not a valid property from call to: ' + matchLengthUrl + ' API may have changed');
                                 reject('DemoTimeInMS was not a valid property in getMatchResult.');
                             }
                         } else {
-                            Logger.log(LOG_FILE, 'replays was not a valid property from call to: ' + matchLengthUrl + ' API may have changed');
                             reject('replays was not a valid property in getMatchResult.');
                         }
                     }, function(err) {
                         reject(err);
                     });
                 } else {
-                    Logger.log(LOG_FILE, 'WinningTeam was not a valid property from call to: ' + url + ' API may have changed');
                     reject('WinningTeam was not a valid property in getMatchResult');
                 }
             }
         }, function(err) {
             var error = 'Error in getMatchResult: ' + JSON.stringify(err);
-            Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
             reject(err);
         }.bind(this));
@@ -374,7 +364,6 @@ Replay.prototype.getPlayersAndGameType = function() {
                         }
                     }.bind(this)).catch(function(err) {
                         var error = 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
-                        Logger.append(LOG_FILE, error);
                         this.queueManager.failed(this);
                         reject(false);
                     }.bind(this));
@@ -515,13 +504,11 @@ Replay.prototype.updatePlayerStats = function() {
                         return Promise.all(newPlayers);
                     }.bind(this), function(err) {
                         var error = 'Error in getPlayersAndGameType: ' + JSON.stringify(err);
-                        Logger.append(LOG_FILE, error);
                     }.bind(this));
                 }
             }
         }.bind(this)).catch(function(err) {
             var error = 'Error in updatePlayerStats: ' + JSON.stringify(err);
-            Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
         }.bind(this));
     } else {
@@ -550,7 +537,6 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
         return Promise.all(allDamage);
     }.bind(this)).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -611,13 +597,10 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
                     }
                 });
                 return damage;
-            } else {
-                Logger.append(LOG_FILE, 'API may have changed, event/{damageId} endpoint did not return a DamageList property.');
             }
         }
     }).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
 
     }.bind(this));
@@ -640,7 +623,6 @@ Replay.prototype.getReplaySummary = function() {
         }
     }).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -659,12 +641,10 @@ Replay.prototype.isGameLive = function() {
             if(body.hasOwnProperty('replays')) {
                 resolve({ isLive: body.replays[0].bIsLive, startedAt: body.replays[0].Timestamp });
             } else {
-                Logger.append(LOG_FILE, "No replays property on the isGameLive object");
                 reject();
             }
         }).catch(function(err) {
             var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-            Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
             reject();
         }.bind(this));
@@ -715,7 +695,6 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
         cb(events);
     }).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -742,7 +721,6 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
         return Promise.all(events);
     }.bind(this)).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -763,13 +741,11 @@ Replay.prototype.getDataForHeroKillId = function(id) {
             if (data.hasOwnProperty('Killer')) {
                 return { killer: data.Killer, killed: data.Killed};
             } else {
-                Logger.append(LOG_FILE, 'There was no Killer property on the kills array, API may have changed');
                 reject();
             }
         }
     }).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -818,12 +794,10 @@ Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
                 return({ code: 1 });
             }
         } else {
-            //Logger.append(LOG_FILE, 'events was not a valid key for the checkpoints array or there were no events');
             return({ code: 2 });
         }
     }.bind(this)).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-        Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
     }.bind(this));
 };
@@ -913,7 +887,6 @@ Replay.latest = function(flag, live, recordFrom) {
             }
         }).catch(function(err) {
             var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-            Logger.append(LOG_FILE, error);
             this.queueManager.failed(this);
             reject();
         }.bind(this));
