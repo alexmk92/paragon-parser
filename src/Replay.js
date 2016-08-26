@@ -3,7 +3,7 @@ var http = require('http');
 var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
-var conf = require('../conf.js');
+//var conf = require('../conf.js');
 var request = require('request');
 
 //var conn = new Connection();
@@ -51,8 +51,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.previousCheckpointTime = checkpoint.previousCheckpointTime;
                     this.replayJSON.latestCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                //var liveString = data.isLive ? 'live' : 'not live';
-                //console.log('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                var liveString = data.isLive ? 'live' : 'not live';
+                Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
@@ -67,7 +67,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     this.replayJSON.players = matchInfo.players;
                                     this.replayJSON.gameType = matchInfo.gameType;
                                     this.replayJSON.isFeatured = matchInfo.isFeatured;
-                                    console.log('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
+                                    //Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
+                                    Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats'.yellow);
                                     this.queueManager.schedule(this, 60000);
                                 }.bind(this), function(isBotGame) {
                                     if(isBotGame) {
@@ -174,10 +175,11 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this), function(err) {
-                            console.log('[REPLAY] Error when getting match result: '.red + err);
+                            //Logger.writeToConsole('[REPLAY] Error when getting match result: '.red + err);
+                            Logger.writeToConsole('[REPLAY] Error when getting match result for replay: '.red + this.replayId);
                             this.queueManager.failed(this);
                         }.bind(this));
-                    } 
+                    }
                 }
             }.bind(this)).catch(function(err) {
                 var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
@@ -187,10 +189,12 @@ Replay.prototype.parseDataAtCheckpoint = function() {
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
                 Logger.append(LOG_FILE, "The replay id: " + this.replayId + " has expired.");
-                console.log('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
+                //Logger.writeToConsole('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
+                Logger.writeToConsole('[REPLAY] The replay: '.red + this.replayId + ' has expired.'.red);
                 this.queueManager.removeItemFromQueue(this);
             } else {
-                console.log('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
+                //Logger.writeToConsole('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
+                Logger.writeToConsole('[REPLAY] Failed as a http status of: '.red + httpStatus + ' was returned for replay '.red + this.replayId);
                 this.queueManager.failed(this);
             }
         }.bind(this));
@@ -223,7 +227,7 @@ Replay.prototype.getMatchResult = function() {
                                 matchResult.gameLength = data.replays[0].DemoTimeInMS;
                                 resolve(matchResult);
                             } else {
-                                //console.log(data);
+                                //Logger.writeToConsole(data);
                                 Logger.log(LOG_FILE, 'DemoTimeInMS was not a valid property from call to: ' + matchLengthUrl + ' API may have changed');
                                 reject('DemoTimeInMS was not a valid property in getMatchResult.');
                             }
@@ -351,10 +355,11 @@ Replay.prototype.getPlayersAndGameType = function() {
                                     // Check for MMR
                                     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
-                                        //console.log('[REPLAY] Successfully got players current ELO for this game.'.green);
+                                        //Logger.writeToConsole('[REPLAY] Successfully got players current ELO for this game.'.green);
                                         resolve(matchDetails);
                                     }, function(err) {
-                                        console.log('[REPLAY] Failed to get players ELO: '.red + err);
+                                        //Logger.writeToConsole('[REPLAY] Failed to get players ELO: '.red + err);
+                                        Logger.writeToConsole('[REPLAY] Failed to get players ELO: '.red + this.replayId);
                                         this.queueManager.failed(this);
                                     }.bind(this));
                                 } else {
@@ -386,7 +391,7 @@ Replay.prototype.getPlayersAndGameType = function() {
 
 Replay.prototype.getPlayersElo = function(players, matchId) {
     // TODO Monitor if we continue to get request errors, if we don't then migrate all requestify calls to request
-    var url = conf.PGG_HOST + '/api/v1/parser/getPlayersElo';
+    var url = process.env.PGG_HOST + '/api/v1/parser/getPlayersElo';
     return new Promise(function(resolve, reject) {
         var options = {
             url: url,
@@ -399,11 +404,12 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
         };
         request(options, function(err, response, body) {
             if(err) {
-                console.log('Error: When getting player elo for match: '.red + matchId);
+                //Logger.writeToConsole('Error: When getting player elo for match: '.red + matchId);
+                Logger.writeToConsole('Error: When getting player elo for match: '.red + matchId);
                 reject(err);
             } else {
                 if(body.length > 0) {
-                    //console.log('response was: ', response.body);
+                    //Logger.writeToConsole('response was: ', response.body);
                     if(Object.prototype.toString.call(response.body) === '[object Array]') {
                         var newPlayers = [];
                         players.forEach(function(player) {
@@ -418,12 +424,14 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                         });
                         resolve(newPlayers);
                     } else {
-                        console.log('[REPLAY] Response body was not an array, instead it was: '.red, response.body);
+                        //Logger.writeToConsole('[REPLAY] Response body was not an array, instead it was: '.red, response.body);
+                        Logger.writeToConsole('[REPLAY] Response body was not an array, instead it was'.red, response.body);
                         reject();
                     }
                 } else {
-                    console.log('Error: No data sent back from server in body: '.red + matchId);
-                    reject('[REPLAY] Could not get player Elo for match: '.red + matchId);
+                    //Logger.writeToConsole('Error: No data sent back from server in body: '.red + matchId);
+                    Logger.writeToConsole('[REPLAY] Error: No data sent back from server in body: '.red + matchId);
+                    reject('[REPLAY] Could not get player Elo for match: ' + matchId);
                 }
             }
         });
@@ -440,12 +448,13 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
 
 Replay.prototype.endMatch = function() {
 
-    var url = conf.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
-    //console.log('Match ended, sending GET request to: ' + url);
+    var url = process.env.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
+    //Logger.writeToConsole('Match ended, sending GET request to: ' + url);
     requestify.get(url).then(function(response) {
-         //console.log('Sent request to update player ELO:', response);
+         //Logger.writeToConsole('Sent request to update player ELO:', response);
     }, function(err) {
-        console.log('Error when match ended when trying to calculate new ELO: '.red, err);
+        //Logger.writeToConsole('Error when match ended when trying to calculate new ELO: '.red, err);
+        Logger.writeToConsole('Error when match ended when trying to calculate new ELO: '.red, err);
     });
 
 };
@@ -607,7 +616,7 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         Logger.append(LOG_FILE, error);
         this.queueManager.failed(this);
-        
+
     }.bind(this));
 };
 
@@ -800,7 +809,7 @@ Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
             }
 
             if(found) {
-                //console.log('new cp time is: '.green, latestCheckpointTime);
+                //Logger.writeToConsole('new cp time is: '.green, latestCheckpointTime);
                 return({ code: 0, previousCheckpointTime: previousCheckpointTime, currentCheckpointTime: latestCheckpointTime });
             } else {
                 return({ code: 1 });
@@ -870,7 +879,7 @@ Replay.latest = function(flag, live, recordFrom) {
             url += '?live=' + live;
         }
     }
-    console.log('[SCRAPER] Scraping url: '.yellow + url);
+    Logger.writeToConsole('[SCRAPER] Scraping url: '.yellow + url);
     return new Promise(function(resolve, reject) {
         var data = null;
         var isLive = live === 'true' ? 1 : 0;

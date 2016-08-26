@@ -1,4 +1,5 @@
 /.idea
 /node_modules
 conf.js
+.env
 /logs/log.txt

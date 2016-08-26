@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 var Replay = require('./src/Replay');
 var Logger = require('./src/Logger');
 var colors = require('colors');
@@ -8,7 +10,7 @@ if(cluster.isMaster) {
     cluster.fork();
 
     cluster.on('exit', function(worker, code, signal) {
-        console.log('[SCRAPER] Something went wrong, forking a new process!'.red);
+        Logger.writeToConsole('[SCRAPER] Something went wrong, forking a new process!'.red);
         cluster.fork();
     });
 }
@@ -43,8 +45,7 @@ if(cluster.isWorker) {
     process.stdin.resume();//so the program will not close instantly
 
     function cleanup() {
-        //Replay.killConnections();
-        console.log('[SCRAPER] Scraper was shut down successfully.'.yellow);
+        Logger.writeToConsole('[SCRAPER] Scraper was shut down successfully.'.yellow);
     }
 
     //do something when app is closing
@@ -55,7 +56,7 @@ if(cluster.isWorker) {
 
     //catches uncaught exceptions
     process.on('uncaughtException', function(err) {
-        console.log('[SCRAPER] Uncaught Exception: '.red, err);
+        Logger.writeToConsole('[SCRAPER] Uncaught Exception: '.red, err);
         cleanup();
     });
 }
