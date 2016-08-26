@@ -327,9 +327,11 @@ Queue.prototype.deleteFile = function(replay) {
  */
 
 Queue.disposeOfLockedReservedEvents = function(callback) {
+    console.log('disposing of locked events')
     var conn = new Connection();
     var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 7';
     conn.query(query, function() {
+        console.log('disposed');
         callback();
     });
 };
