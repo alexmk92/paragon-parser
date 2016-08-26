@@ -36,6 +36,7 @@ memcached.add('clearDeadReservedReplays', true, 30, function(err) {
     if(err) {
         Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
     } else {
+        Logger.writeToConsole('[QUEUE] Dispose any locked events'.yellow);
         Queue.disposeOfLockedReservedEvents(function() {
             memcached.del('clearDeadReservedReplays', function(err) {
                 if(err) {
