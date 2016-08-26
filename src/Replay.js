@@ -51,8 +51,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.previousCheckpointTime = checkpoint.previousCheckpointTime;
                     this.replayJSON.latestCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                var liveString = data.isLive ? 'live' : 'not live';
-                Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+                //var liveString = data.isLive ? 'live' : 'not live';
+                //Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;

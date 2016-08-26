@@ -1,6 +1,6 @@
 apps:
   - script   : ./parser.js
     name     : 'parser'
-    instances: 1
+    instances: 4
     exec_mode: cluster
     watch: true

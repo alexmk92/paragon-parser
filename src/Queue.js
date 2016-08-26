@@ -49,7 +49,7 @@ Queue.prototype.getNextJob = function() {
     if(!fetching && this.workers.length < this.maxWorkers) {
         fetching = true;
         var conn = new Connection();
-        Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
+        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
 
         // Set the priority on the queue back to 0 once we start working it
         //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
@@ -64,14 +64,13 @@ Queue.prototype.getNextJob = function() {
                 // we dont want to spam requests to get jobs if the queue is empty
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 50);
+                }.bind(this), 100);
             }
         }.bind(this));
     } else {
-        Logger.writeToConsole('trying to fetch again in 0.15s');
         setTimeout(function() {
             this.getNextJob();
-        }.bind(this), 50);
+        }.bind(this), 100);
     }
 };
 
