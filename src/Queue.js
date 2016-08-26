@@ -80,6 +80,7 @@ Queue.prototype.getNextJob = function() {
             }
         }.bind(this));
     } else {
+        console.log('not enough jobs running')
         setTimeout(function() {
             this.getNextJob();
         }.bind(this), 250);
