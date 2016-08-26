@@ -18,6 +18,9 @@ var colors = require('colors');
 var cluster = require('cluster');
 var MongoClient = require('mongodb').MongoClient;
 
+var Memcached = require('memcached');
+var memcached = new Memcached('paragongg-queue.t4objd.cfg.use1.cache.amazonaws.com:11211');
+
 var url = '';
 if(process.env.MONGO_URI) {
     url = process.env.MONGO_URI;
@@ -29,6 +32,21 @@ var mongodb = null;
 var queue   = null;
 var workers = process.env.WORKERS || 1;
 
+memcached.add('clearDeadReservedReplays', true, 30, function(err) {
+    if(err) {
+        Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
+    } else {
+        Queue.disposeOfLockedReservedEvents(function() {
+            memcached.del('clearDeadReservedReplays', function(err) {
+                if(err) {
+                    Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 30 seconds.'.red);
+                }
+            });
+        });
+    }
+});
+
+// Now start the app
 MongoClient.connect(url, function(err, db) {
     mongodb = db;
     if(err) {

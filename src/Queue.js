@@ -17,10 +17,6 @@ var Queue = function(db, workers) {
     this.maxWorkers = workers || 40;
     this.workers = [];
 
-    setInterval(function() {
-        this.disposeOfLockedReservedEvents();
-    }.bind(this), 44000);
-
     this.initializeWorkers();
 };
 
@@ -29,16 +25,6 @@ Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
         this.getNextJob();
     }
-};
-
-/*
- * Unbinds all locked events from the Queue
- */
-
-Queue.prototype.disposeOfLockedReservedEvents = function() {
-    var conn = new Connection();
-    var query = 'UPDATE queue SET reserved = 0 WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 7';
-    conn.query(query, function() {});
 };
 
 Queue.prototype.getNextJob = function() {
@@ -57,7 +43,7 @@ Queue.prototype.getNextJob = function() {
 
                 // Set the priority on the queue back to 0 once we start working it
                 //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = 0 AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+                var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
                 var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
 
                 conn.selectUpdate(selectQuery, updateQuery, function(replay) {
@@ -159,7 +145,7 @@ Queue.prototype.failed = function(replay) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + 120000);
         replay.replayJSON = null;
-        var query = 'UPDATE queue SET completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = 0 WHERE replayId = "' + replay.replayId + '"';
+        var query = 'UPDATE queue SET completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved = false WHERE replayId = "' + replay.replayId + '"';
 
         conn.query(query, function(row) {
             if(typeof row !== 'undefined' && row.affectedRows !== 0) {
@@ -191,7 +177,7 @@ Queue.prototype.schedule = function(replay, ms) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + ms);
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
-        var query = 'UPDATE queue SET reserved = 0, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved = false, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(replay, function() {
                 this.getNextJob();
@@ -334,6 +320,18 @@ Queue.prototype.deleteFile = function(replay) {
     } catch(e) {
         Logger.writeToConsole('[MONGO ERROR] in Queue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
     }
+};
+
+/*
+ * STATIC Unbinds all locked events from the Queue
+ */
+
+Queue.disposeOfLockedReservedEvents = function(callback) {
+    var conn = new Connection();
+    var query = 'UPDATE queue SET reserved = false WHERE TIMEDIFF(reserved_at, NOW()) / 60 > 7';
+    conn.query(query, function() {
+        callback();
+    });
 };
 
 module.exports = Queue;
