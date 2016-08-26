@@ -25,7 +25,6 @@ Connection.prototype.end = function() {
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
     this.connection.connect(function (err) {
         if(err) {
-            Logger.append('./logs/log.txt', err);
             Logger.writeToConsole("[MYSQL] Error: Connection NOT made".red + err);
             callback(null);
         } else {
@@ -90,12 +89,10 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
 Connection.prototype.query = function(queryString, callback) {
     this.connection.connect(function (err) {
         if(err) {
-            Logger.append('./logs/log.txt', err);
             Logger.writeToConsole("[MYSQL] Error: Connection NOT made".red);
         } else {
             this.connection.query(queryString, function(err, rows) {
                 if(err) {
-                    Logger.append('./logs/log.txt', 'QUERYSTRING: ' + queryString);
                     Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful".red);
                 }
                 if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {

@@ -3,24 +3,22 @@ var Replay = require('./Replay');
 var Logger = require('./Logger');
 var colors = require('colors');
 var assert = require('assert');
-var fs = require('fs');
 
-//var conn = null;
-var LOG_FILE = './logs/log.txt';
+var fs = require('fs');
+var Memcached = require('memcached');
+var memcached = new Memcached('paragongg-cache.t4objd.cfg.use1.cache.amazonaws.com:11211');
 
 // determines if another worker is already fetching a job
-var fetching = false;
+//var fetching = false;
 var removing = false;
 
 var Queue = function(db, workers) {
     this.mongoconn = db; // If null, couldn't connect
     this.maxWorkers = workers || 40;
     this.workers = [];
-    //conn = new Connection(workers || 40);
 
     setInterval(function() {
         this.disposeOfLockedReservedEvents();
-
     }.bind(this), 360000);
 
     this.initializeWorkers();
@@ -46,32 +44,58 @@ Queue.prototype.disposeOfLockedReservedEvents = function() {
 Queue.prototype.getNextJob = function() {
     // Keep trying to get the next job every 0.05s, this is so we don't spike memory usage on our little 512MB boxes
     // by making too many requests!
-    if(!fetching && this.workers.length < this.maxWorkers) {
-        fetching = true;
-        var conn = new Connection();
-        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
-
-        // Set the priority on the queue back to 0 once we start working it
-        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-        var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-        var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
-
-        conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-            fetching = false;
-            if(typeof replay !== 'undefined' && replay !== null) {
-                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-            } else {
-                // we dont want to spam requests to get jobs if the queue is empty
+    if(this.workers.length < this.maxWorkers) {
+        memcached.add('locked', true, 2, function(err) {
+            if(err) {
+                console.log('[MEMCACHED ERR] '.red, err);
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 100);
+                }.bind(this), 250);
+            } else {
+                var conn = new Connection();
+                //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
+
+                // Set the priority on the queue back to 0 once we start working it
+                //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+                var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+                var updateQuery = 'UPDATE queue SET priority=0, reserved=1';
+
+                conn.selectUpdate(selectQuery, updateQuery, function(replay) {
+                    memcached.del('locked', function(err) {
+                        if(err) {
+                            console.log(err.red);
+                        } else {
+                            console.log('deleted cache lock'.green);
+                        }
+                    });
+                    if(typeof replay !== 'undefined' && replay !== null) {
+                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                    } else {
+                        // we dont want to spam requests to get jobs if the queue is empty
+                        setTimeout(function() {
+                            this.getNextJob();
+                        }.bind(this), 250);
+                    }
+                }.bind(this));
             }
         }.bind(this));
     } else {
         setTimeout(function() {
             this.getNextJob();
+        }.bind(this), 250);
+    }
+
+
+    /*
+    if(!fetching && this.workers.length < this.maxWorkers) {
+        fetching = true;
+
+    } else {
+        setTimeout(function() {
+            this.getNextJob();
         }.bind(this), 100);
     }
+    */
 };
 
 Queue.prototype.runTask = function(replay) {
@@ -136,12 +160,10 @@ Queue.prototype.failed = function(replay) {
         conn.query(query, function(row) {
             if(typeof row !== 'undefined' && row.affectedRows !== 0) {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
-                Logger.append(LOG_FILE, 'The replay with id: ' + replay.replayId + ' failed, its scheduled to re-run at ' + scheduledDate);
                 this.deleteFile(replay);
                 this.getNextJob();
             } else {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
-                Logger.append(LOG_FILE, 'Failed to update the failure attempt for ' + replay.replayId + '. Used query: ' + query + ', returned:' + JSON.stringify(row));
                 this.getNextJob();
             }
         }.bind(this));
@@ -222,7 +244,6 @@ Queue.prototype.removeDeadReplay = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
-            //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
             Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
             this.deleteFile(replay);
             this.getNextJob();
@@ -247,7 +268,6 @@ Queue.prototype.removeBotGame = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
-            //Logger.append('./logs/failedReplays.txt', 'Replay: ' + replay.replayId + ' was either empty or had been processed before and has been removed from the queue');
             Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
             this.getNextJob();
         }.bind(this));
@@ -284,7 +304,6 @@ Queue.prototype.uploadFile = function(replay, callback) {
             this.failed(replay);
             Logger.writeToConsole('[MONGO ERROR] in Queue.js when uploading relay: '.red + replay.replayId + '.  Error: '.red, e);
             callback({ message: 'failed to upload' });
-            //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
         }
     } else {
         this.failed(replay);
@@ -310,7 +329,6 @@ Queue.prototype.deleteFile = function(replay) {
             }.bind(this));
     } catch(e) {
         Logger.writeToConsole('[MONGO ERROR] in Queue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
-        //Logger.append('./logs/mongoError.txt', 'Mongo error: ' + JSON.stringify(e));
     }
 };
 
