@@ -47,7 +47,7 @@ Queue.prototype.getNextJob = function() {
     if(this.workers.length < this.maxWorkers) {
         memcached.add('locked', true, 2, function(err) {
             if(err) {
-                console.log('[MEMCACHED ERR] '.red, err);
+                //console.log('[MEMCACHED ERR] '.red, err);
                 setTimeout(function() {
                     this.getNextJob();
                 }.bind(this), 250);
