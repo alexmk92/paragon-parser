@@ -353,6 +353,8 @@ Replay.prototype.getPlayersAndGameType = function() {
 
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
                                     // Check for MMR
+                                    resolve(matchDetails);
+                                    /*
                                     this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
                                         matchDetails.players = playersWithElo;
                                         //Logger.writeToConsole('[REPLAY] Successfully got players current ELO for this game.'.green);
@@ -362,6 +364,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                         Logger.writeToConsole('[REPLAY] Failed to get players ELO: '.red + this.replayId);
                                         this.queueManager.failed(this);
                                     }.bind(this));
+                                    */
                                 } else {
                                     reject(true);
                                 }
@@ -408,7 +411,7 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
                 Logger.writeToConsole('Error: When getting player elo for match: '.red + matchId);
                 reject(err);
             } else {
-                if(body.length > 0) {
+                if(typeof body !== 'undefined' && body && body.length > 0) {
                     //Logger.writeToConsole('response was: ', response.body);
                     if(Object.prototype.toString.call(response.body) === '[object Array]') {
                         var newPlayers = [];
