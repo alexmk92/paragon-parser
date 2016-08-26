@@ -63,12 +63,12 @@ Queue.prototype.getNextJob = function() {
                 conn.selectUpdate(selectQuery, updateQuery, function(replay) {
                     memcached.del('locked', function(err) {
                         if(err) {
-                            console.log(err.red);
+                            Logger.writeToConsole(err.red);
                             setTimeout(function() {
                                  this.getNextJob();
                             }.bind(this), 2000);
                         } else {
-                            console.log('deleted cache lock'.green);
+                            Logger.writeToConsole('deleted cache lock'.green);
                             if(typeof replay !== 'undefined' && replay !== null) {
                                 this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                             } else {
@@ -83,7 +83,7 @@ Queue.prototype.getNextJob = function() {
             }
         }.bind(this));
     } else {
-        console.log('not enough jobs running')
+        Logger.writeToConsole('not enough jobs running')
         setTimeout(function() {
             this.getNextJob();
         }.bind(this), 250);
