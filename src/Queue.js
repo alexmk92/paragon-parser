@@ -64,18 +64,21 @@ Queue.prototype.getNextJob = function() {
                     memcached.del('locked', function(err) {
                         if(err) {
                             console.log(err.red);
+                            setTimeout(function() {
+                                 this.getNextJob();
+                            }.bind(this), 2000);
                         } else {
                             console.log('deleted cache lock'.green);
+                            if(typeof replay !== 'undefined' && replay !== null) {
+                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                            } else {
+                                // we dont want to spam requests to get jobs if the queue is empty
+                                setTimeout(function() {
+                                    this.getNextJob();
+                                }.bind(this), 250);
+                            }
                         }
-                    });
-                    if(typeof replay !== 'undefined' && replay !== null) {
-                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                    } else {
-                        // we dont want to spam requests to get jobs if the queue is empty
-                        setTimeout(function() {
-                            this.getNextJob();
-                        }.bind(this), 250);
-                    }
+                    }.bind(this));
                 }.bind(this));
             }
         }.bind(this));
