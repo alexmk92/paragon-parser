@@ -33,13 +33,13 @@ if(cluster.isWorker) {
     getCustomAndFeaturedReplays();
     setInterval(function() {
         getCustomAndFeaturedReplays();
-    }, 120000);
+    }, 5000);
 
     // Get all of the less popular replays and service these once per 3 mins
     getLiveReplays();
     setInterval(function() {
         getLiveReplays();
-    }, 6000);
+    }, 10000);
 
     // Handle closing here:
     process.stdin.resume();//so the program will not close instantly
