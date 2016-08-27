@@ -73,7 +73,7 @@ function cleanup() {
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
             setTimeout(function() {
                 cleanup();
-            }, 150);
+            }, 100);
         } else {
             Queue.disposeOfLockedReservedEvents(processId, function() {
                 memcached.del('clearDeadReservedReplays', function(err) {
@@ -81,7 +81,7 @@ function cleanup() {
                         Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 15 seconds.'.red);
                         setTimeout(function() {
                             cleanup();
-                        }, 150);
+                        }, 100);
                     } else {
                         Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
                         process.exit(err ? 1 : 0);
