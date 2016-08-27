@@ -45,8 +45,8 @@ Queue.prototype.getNextJob = function() {
 
                         // Set the priority on the queue back to 0 once we start working it
                         //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                        var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-                        var updateQuery = 'UPDATE queue SET reserved_by="' + this.processId + '", priority=0, reserved=1';
+                        var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved_by = NULL AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+                        var updateQuery = 'UPDATE queue SET reserved_by="' + this.processId + '", priority=0';
 
                         conn.selectUpdate(selectQuery, updateQuery, function(replay) {
                             memcached.del('locked', function(err) {
@@ -142,7 +142,7 @@ Queue.prototype.failed = function(replay) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + 120000);
         replay.replayJSON = null;
-        var query = 'UPDATE queue SET reserved_by=null, completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE), reserved=0 WHERE replayId = "' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
 
         conn.query(query, function(row) {
             if(typeof row !== 'undefined' && row.affectedRows !== 0) {
@@ -174,7 +174,7 @@ Queue.prototype.schedule = function(replay, ms) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + ms);
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
-        var query = 'UPDATE queue SET reserved_by=null, reserved=0, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(replay, function() {
                 this.getNextJob();
@@ -202,7 +202,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         this.uploadFile(replay, function(err) {
             if(err === null) {
                 Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
-                var query = 'UPDATE queue SET reserved_by=null, reserved=0, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+                var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
                 conn.query(query, function() {});
                 this.getNextJob();
             } else {
@@ -229,7 +229,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
         removing = false;
 
         var conn = new Connection();
-        var query = 'UPDATE queue SET reserved_by=null, reserved=0, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
             this.deleteFile(replay);
@@ -253,7 +253,7 @@ Queue.prototype.removeBotGame = function(replay) {
         removing = false;
 
         var conn = new Connection();
-        var query = 'UPDATE queue SET reserved_by=null, reserved=0, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
             this.getNextJob();
@@ -326,7 +326,7 @@ Queue.prototype.deleteFile = function(replay) {
 Queue.disposeOfLockedReservedEvents = function(processId, callback) {
     Logger.writeToConsole('disposing of locked events');
     var conn = new Connection();
-    var query = 'UPDATE queue SET reserved=0, reserved_by=null WHERE reserved_by="' + processId + '"';
+    var query = 'UPDATE queue SET reserved_by=null WHERE reserved_by="' + processId + '"';
     conn.query(query, function() {
         Logger.writeToConsole('disposed');
         callback();
