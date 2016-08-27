@@ -170,6 +170,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                             this.replayJSON.gameLength = matchResult.gameLength;
                             this.replayJSON.isLive = false;
                             this.replayJSON.previousCheckpointTime = this.replayJSON.latestCheckpointTime;
+                            this.replayJSON.endedAt = new Date(this.replayJSON.startedAt += matchResult.gameLength);
                             //this.endMatch();
                             this.queueManager.removeItemFromQueue(this);
                         }.bind(this), function(err) {
@@ -934,6 +935,7 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
     return {
         replayId: replayId,
         startedAt: null,
+        endedAt: null,
         isFeatured: false,
         previousCheckpointTime: checkpointTime,
         latestCheckpointTime: 0,
