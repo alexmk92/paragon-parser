@@ -25,7 +25,7 @@ var url = '';
 if(process.env.MONGO_URI) {
     url = process.env.MONGO_URI;
 } else {
-    url = 'mongodb://' + process.env.MONGO_HOST + '/' + process.env.MONGO_DATABASE;
+    url = 'mongodb://' + process.env.MONGO_HOST + ':' + process.env.MONGO_PORT + '/' + process.env.MONGO_DATABASE;
 }
 
 var mongodb = null;
