@@ -3,6 +3,12 @@ var mysql = require('mysql');
 var Logger = require('./Logger');
 var colors = require('colors');
 
+/**
+ * @Connection :
+ * -------------
+ * Creates a new connection object using config variables set in .env
+ */
+
 var Connection = function() {
     this.connection = mysql.createConnection({
         host:     process.env.SQL_HOST,
@@ -13,6 +19,13 @@ var Connection = function() {
     });
 };
 
+/**
+ * @end :
+ * ------
+ * Safely dispose of the connection using connections .end method which gracefully
+ * disposes of the connection.
+ */
+
 Connection.prototype.end = function() {
     this.connection.end(function (err) {
         if(err) {
@@ -21,6 +34,20 @@ Connection.prototype.end = function() {
         // all connections in the pool have ended
     });
 };
+
+/**
+ * @selectUpdate :
+ * ---------------
+ * Starts a new transaction and selects a row for update.  This causes a lock in the database
+ * so if another process selects it a deadlock could occur, we handle this by using a memcache
+ * which synchronizes all r/w transactions to the DB
+ *
+ * @param {string} selectQuery - The select query to run
+ * @param {string} updateQuery - The update query to run NOTE: There is a hardcoded append in this file, its a WHERE
+ * clause that is set as the result of the SELECT query to append the replayId to UPDATE
+ * @param {function} callback - Callback to notify the caller that the transaction has completed, this then notifies
+ * them to release the lock on memcached
+ */
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
     this.connection.connect(function (err) {
@@ -85,6 +112,16 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
         }
     }.bind(this));
 };
+
+/**
+ * @query :
+ * --------
+ * Queries the database with a given query string and calls back to the caller when the
+ * query completes, if there is an error the worker dies and the GC disposes of it.
+ *
+ * @param {string} queryString - The query to be run
+ * @param {function} callback - Callback to notify the caller that the query has completed
+ */
 
 Connection.prototype.query = function(queryString, callback) {
     this.connection.connect(function (err) {
