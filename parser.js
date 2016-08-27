@@ -46,21 +46,33 @@ MongoClient.connect(url, function(err, db) {
     }
 });
 
-// If a process dies, dispose of its reserved events
-process.on('SIGINT', function() {
+function cleanup() {
     memcached.add('clearDeadReservedReplays', true, 15, function(err) {
         if(err) {
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
-            process.exit(err ? 1 : 0);
+            setTimeout(function() {
+                cleanup();
+            }, 2500);
         } else {
             Queue.disposeOfLockedReservedEvents(processId, function() {
                 memcached.del('clearDeadReservedReplays', function(err) {
                     if(err) {
                         Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 15 seconds.'.red);
+                        //callback(false)
+                        setTimeout(function() {
+                            cleanup();
+                        }, 2500);
+                    } else {
+                        process.exit(err ? 1 : 0);
+                        //callback(true);
                     }
-                    process.exit(err ? 1 : 0);
                 });
             });
         }
     });
+}
+
+// If a process dies, dispose of its reserved events
+process.on('SIGINT', function() {
+    cleanup();
 });
