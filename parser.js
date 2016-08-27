@@ -60,14 +60,12 @@ function cleanup() {
                 memcached.del('clearDeadReservedReplays', function(err) {
                     if(err) {
                         Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 15 seconds.'.red);
-                        //callback(false)
                         setTimeout(function() {
                             cleanup();
                         }, 2500);
                     } else {
                         Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
                         process.exit(err ? 1 : 0);
-                        //callback(true);
                     }
                 });
             });
