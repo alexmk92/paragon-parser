@@ -46,6 +46,8 @@ MongoClient.connect(url, function(err, db) {
     }
 });
 
+// When another cluster isn't cleaning up, this allows us to remove all jobs for this specific process,
+// this prevents the cleanup function from removing work for every single process running on any box
 function cleanup() {
     memcached.add('clearDeadReservedReplays', true, 15, function(err) {
         if(err) {
