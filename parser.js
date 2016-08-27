@@ -48,7 +48,7 @@ MongoClient.connect(url, function(err, db) {
 
 // If a process dies, dispose of its reserved events
 process.on('SIGINT', function() {
-    memcached.add('clearDeadReservedReplays', true, 30, function(err) {
+    memcached.add('clearDeadReservedReplays', true, 15, function(err) {
         if(err) {
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
             process.exit(err ? 1 : 0);
@@ -56,7 +56,7 @@ process.on('SIGINT', function() {
             Queue.disposeOfLockedReservedEvents(processId, function() {
                 memcached.del('clearDeadReservedReplays', function(err) {
                     if(err) {
-                        Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 30 seconds.'.red);
+                        Logger.writeToConsole('[MEMCACHE] Failed to delete lock on clearDeadReservedReplays, it will expire in 15 seconds.'.red);
                     }
                     process.exit(err ? 1 : 0);
                 });
