@@ -3,14 +3,32 @@ var http = require('http');
 var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
-//var conf = require('../conf.js');
 var request = require('request');
 
-//var conn = new Connection();
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
-/*
+
+/**
+ * @Replay :
+ * ---------
  * Replay object manages which chunk of data we want to stream from the endpoint
  * it has one static method called latest which returns a list of replay ids
+ *
+ * NOTE:
+ * -----
+ * All methods that make a request to Epics API will return a Promise, this is because
+ * each stage in the processing pipeline depends on the previous event to finish, it wouldn't make sense
+ * to process chunk B whilst chunk A is still processing, otherwise data like totalDamage done, or our
+ * event feed could become corrupt. Promises allow us to handle all transactions autonomously by processing
+ * each chunk sequentially.   Due to nodes non-blocking nature this we can use Promises to callback when
+ * each stage is done before processing the rest of the replay without interrupting the
+ * executuon of other process workers.
+ *
+ * @param {object} db - Reference to the Mongo Connection object so we can query inside of this class
+ * @param {string} replayId - Id of the replay we are processing to make requests to epic API
+ * @param {number} checkpointTime - The time we should start processing this replay from to save on network requests
+ * this can be set from a previous worker so that we don't need to fully process all the chunks again
+ * @param {number} attempts - The number of failed attempts, if this is too high we remove it from the queue
+ * @queue {object} queue - Reference to the parent @Queue.js which manages this Replay object
  */
 
 var Replay = function(db, replayId, checkpointTime, attempts, queue) {
@@ -24,9 +42,20 @@ var Replay = function(db, replayId, checkpointTime, attempts, queue) {
     this.queueManager = queue;
 };
 
-/*
- * Kicks off the stream from the constructor once the client program invokes it on this
- * specific instance
+/**
+ * @parseDataAtCheckpoint :
+ * ------------------------
+ * This function is the main brains of the Replay object, it calls itself recursively until all of
+ * the replay chunks have been processed, it does this by checking the game current state and compares
+ * the previous checkpointTime to the next checkpointTime it gets from an API request from Epic.
+ *
+ * If this replay has been servied by another queue before this Replay's checkpointTime will be > 0
+ * and will start processing chunks where the old replay left off, saving network request cycles, thus
+ * improving the performance of the application.
+ *
+ * If the checkpointTime's match and the game is live it will reschedule this replay to run on @Queue
+ * in 1 minute, otherwise it will tell @Queue to remove the item from the queue and upload it for
+ * final processing if all chunks were processed with no errors.
  */
 
 Replay.prototype.parseDataAtCheckpoint = function() {
@@ -198,8 +227,22 @@ Replay.prototype.parseDataAtCheckpoint = function() {
     }.bind(this));
 };
 
-/*
- * Gets the result of the match
+/**
+ * @getMatchResult :
+ * -----------------
+ * Type: GET
+ * EndpointA: /replay/v2/event/{replayId}_replay_details
+ * EndpointB: /replay/v2/replay?user={replayId}
+ *
+ * Gets the result of the match, this will even resolve the promise and send back the
+ * games total time in ms as well as which team won.  This method will only be called
+ * if this.replayJSON.previousCheckpointTime is equal to this.replayJSON.latestCheckpointTime
+ * and if this.replayJSON.isLive is true.
+ *
+ * If this call succeeds, the returned promise is resolved and will result in @Queue.removeItemFromQueue
+ * otherwise @Queue.failed will be called and the replay shall be reprocessed by another queue worker.
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getMatchResult = function() {
@@ -245,9 +288,24 @@ Replay.prototype.getMatchResult = function() {
     });
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/replay/{replayId}/users
+/**
+ * @getPlayersAndGameType :
+ * ------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/users
+ *
+ * Gets all players in the game as well as the game type (PVP, COOP_AI, AI, CUSTOM), this
+ * allows us to determine if we should continue processing the game (we remove this
+ * replay from the Queue if its a bot game is its a waste of processing).
+ *
+ * We also store the players in this.replayJSON.players and send a request to @getPlayersElo
+ * so that the players will be saved to Mongo along with this match to allow us to process
+ * their ELO.
+ *
+ * Once this job finishes we return a promise that resolves with an array of players and
+ * the game type.
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getPlayersAndGameType = function() {
@@ -376,10 +434,21 @@ Replay.prototype.getPlayersAndGameType = function() {
     }.bind(this));
 };
 
-/*
- * TYPE: POST
- * EP: /api/v1/parser/getPlayersElo
- * Params: Array of players
+/**
+ * @getPlayersElo :
+ * ------------------------
+ * Type: POST (PGG API)
+ * Endpoint: /api/v1/parser/getPlayersElo
+ *
+ * Makes a request to the Paragon host to start a getPlayersElo job, the request to
+ * Paragon returns the input list of players with their current assigned ELO number
+ * allowing us to do computation on this number once the game ends.  The request made
+ * to Paragon spawns a job on the PGG queue, so we don't need to wait for it to finish
+ *
+ * This request returns a Promise which resolves with the new list of players with
+ * their current attributed ELO
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getPlayersElo = function(players, matchId) {
@@ -431,12 +500,18 @@ Replay.prototype.getPlayersElo = function(players, matchId) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /api/v1/parser/endMatch/{id}
+/**
+ * @endMatch :
+ * -----------
+ * Type: GET (PGG API)
+ * Endpoint: /api/v1/parser/endMatch/{replayId}
  *
- * Tells PGG that the match has finished and to create a job to calculate
- * the players new ELO
+ * Tells PGG that the match has finished processing, it will spawn a job on the pgg and
+ * will calculate the players new ELO based on the match result
+ *
+ * We don't wait for a promise to resolve on this method as it does not directly effect
+ * the execution of the process.  This will only be called when a replay has been fully
+ * processed and @Queue.removeItemFromQueue is called.
  */
 
 Replay.prototype.endMatch = function() {
@@ -452,12 +527,18 @@ Replay.prototype.endMatch = function() {
 
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/event/{streamId}_replay_details
+/**
+ * @updatePlayersStats :
+ * ---------------------
+ * Type: GET
+ * Endpoint: /replay/v2/event/{streamId}_replay_details
  *
- * Hits the /users endpoint to update the players KDA
+ * Hits the Epic API endpoint and updates the players stats such as damage, kills,
+ * deaths and assists.
+ *
+ * @return {promise}
  */
+
 Replay.prototype.updatePlayerStats = function() {
     var url = REPLAY_URL +'/replay/v2/event/' + this.replayId + '_replay_details';
 
@@ -521,6 +602,23 @@ Replay.prototype.updatePlayerStats = function() {
     }
 };
 
+/**
+ * @getHeroDamageAtCheckpoint :
+ * ----------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/event?group=damage&time1={time1}&time2={time2}
+ *
+ * Gets all damage events for all heroes between two checkpoint time stamps, when the promise
+ * is resolved it is processed in @updatePlayerStats, this call will make calls to
+ * @getDamageForCheckpointId which will process all damage which happened between
+ * timestamps 1 and 2, this will normally only result in one checkpoint being processed
+ * as we only query in 1 minute chunks.
+ *
+ * @param {number} time1 - The time in ms to start scraping chunks from
+ * @param {number} time2 - The time in ms to stop scraping chunks from
+ * @return {promise}
+ */
+
 Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=damage&time1=' + time1 + '&time2=' + time2;
     return requestify.get(url).then(function(response) {
@@ -542,10 +640,17 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/replay/{replayId}/event/{damageId}
- * Gets a specific damage event.
+/**
+ * @getDamageForCheckpointId :
+ * ---------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/event/{eventId}
+ *
+ * Gets all damage for the specific event called from @getHeroDamageAtCheckpoint
+ *
+ * @param {string} eventId - The id of the checkpoint event we want to get damage for
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getDamageForCheckpointId = function(eventId) {
@@ -607,10 +712,19 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/event/{replay_id}_replay_details
- * Gets the current overall summary of the match events
+/**
+ * @getReplaySummary :
+ * -------------------
+ * Type: GET
+ * Endpoint: /replay/v2/event/{replayId}_replay_details
+ *
+ * Gets a list of all players in the game and the current winning team.  The promise
+ * resolves with codes:
+ *
+ * 0 = There were no errors, we return a data key on the resolved payload
+ * 1 = There was no data, fail this replay and re-serve it in 2 minutes
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getReplaySummary = function() {
@@ -628,10 +742,15 @@ Replay.prototype.getReplaySummary = function() {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP : /replay/v2/replay?user={replayId}
+/**
+ * @isGameLive :
+ * -------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay?user={replayId}
+ *
  * Gets info on the game, whether its live and the timestamp it started on
+ *
+ * @return {promise}
  */
 
 Replay.prototype.isGameLive = function() {
@@ -652,10 +771,19 @@ Replay.prototype.isGameLive = function() {
     }.bind(this));
 };
 
-/*
- * Gets the tower kills and hero kills event feed at a specific given
- * check point
+/**
+ * @getEventFeedForCheckpoint :
+ * ----------------------------
+ * Gets the tower and player kills between two checkpoint times. The promise will
+ * resolve with an object containing { towerKills : {Array}, kills : {Array} }
+ *
+ * @param {number} time1 - The first checkpoint time we want to start getting events from
+ * @param {number} time2 - The second checkpoint time we want to end getting events from
+ *
+ * @return {promise}
  */
+
+
 Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
     return new Promise(function(resolve, reject) {
         if(this.replayJSON.gameType !== 'solo_ai' && this.replayJSON.gameType !== 'coop_ai') {
@@ -676,9 +804,24 @@ Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/replay/{replayId}/event?group=towerKills
+/**
+ * @getTowerKillsAtCheckpoint :
+ * ----------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/event?group=towerKills&time1={time1}
+ *
+ * Called from @getEventFeedAtCheckpoint and gets all tower kill events between the two
+ * checkpoint times passed down, the promise resolves with an array of objects containing
+ * the timestamp of the kill, and the name of the killer allowing us to generate a live
+ * event feed on the PGG site.
+ *
+ * If the request fails, we called @Queue.failed to remove the replay, the execution of this
+ * process will stop and be collected by the GC.
+ *
+ * @param {number} time1 - The first checkpoint time we want to start getting tower kills from
+ * @param {number} time2 - The second checkpoint time we want to end getting tower kills from
+ * @param {function} cb - Callback to determine when all events have been processed, this allows
+ * the promise in @getEventFeedAtCheckpoint to resolve when all events are completed
  */
 
 Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
@@ -700,9 +843,24 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/replay/{replayId}/event?group=kills&time1=x&time2=y
+/**
+ * @getTowerKillsAtCheckpoint :
+ * ----------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/event?group=kills&time1={time1}
+ *
+ * Called from @getEventFeedAtCheckpoint and gets all player kill events between the two
+ * checkpoint times passed down, the promise resolves with an array of objects containing
+ * the timestamp of the kill, and the name of the killers name and the name of the
+ * person who was killed allowing us to generate a live event feed on the PGG site.
+ *
+ * If the request fails, we called @Queue.failed to remove the replay, the execution of this
+ * process will stop and be collected by the GC.
+ *
+ * @param {number} time1 - The first checkpoint time we want to start getting tower kills from
+ * @param {number} time2 - The second checkpoint time we want to end getting tower kills from
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
@@ -726,12 +884,21 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
     }.bind(this));
 };
 
-/*
- * TYPE: GET
- * EP: /replay/v2/replay/{replayId}/event/{killId}
+/**
+ * @getDataForHeroKillId :
+ * -----------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay/{replayId}/event/{killId}
  *
- * Given an ID from getHeroKillsAtCheckpoint we get the killer and killer from
- * this endpoint
+ * Called from @getHeroKillsAtCheckpoint, this takes the id of a kill and gets the name of the
+ * killer and the name of the killed person.  The timestamp is recorded in @getHeroKillsAtCheckpoint
+ *
+ * If the promise rejects then @getHeroKillsAtCheckpoint will fail and remove the replay from the
+ * queue, this will also happen if requestify can't hit the endpoint.
+ *
+ * @param {number} id - The id of the kill event
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getDataForHeroKillId = function(id) {
@@ -751,15 +918,27 @@ Replay.prototype.getDataForHeroKillId = function(id) {
     }.bind(this));
 };
 
-/*
+/**
+ * @getNextCheckpoint :
+ * --------------------
  * TYPE: GET
  * EP: /replay/v2/replay/{replayId}/event?group=checkpoint
- * Gets a list of all current check points for this match
+ *
+ * Gets a list of all current check points for this match, we can then compare these to
+ * our previously recorded max checkpoint time and determine if the game needs to be rescheduled
+ * for later, or if it has been completed and needs to be uploaded to mongo and removed
+ * from the queue.
+ *
+ * The promise resolve with one of the following codes:
  *
  * CODE VALUES:
- * 0 = Another chunk should be taken after this one
- * 1 = Reschedule the scheduler for 3 minutes
- * 2 = There was an error, tell queue manager it failed!
+ * 0 = Once we finish processing this chunk, get the next chunk and check if we're at the end of processing
+ * 1 = Reschedule the work on this item for 1 minute, this worker will be disposed and put back on the queue
+ * 2 = There was an error, tell queue manager it failed, remove from mongo and reschedule if we have enough attempts
+ *
+ * @param {number} previousCheckpointTime - The previous recorded match time in ms
+ *
+ * @return {promise}
  */
 
 Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
@@ -803,8 +982,13 @@ Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
     }.bind(this));
 };
 
-/*
- * Opens the file for this replay or creates it
+/**
+ * @getFileHandle :
+ * ----------------
+ * This method will resolve a promise that holds the current state of the replay object for the
+ * given replayId.  If it hasn't been processed before an empty replay object is returned,
+ * otherwise if we can find a record in mongo its contents will be loaded into replay JSON ready
+ * for parsing.
  */
 
 Replay.prototype.getFileHandle = function() {
@@ -837,11 +1021,26 @@ Replay.prototype.getFileHandle = function() {
     }.bind(this));
 };
 
-/*
- * STATIC
+/**
+ * @getFileHandle (static method):
+ * -------------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay?user=flag_{flag}&live={live}
+ *
  * This method gets a list of the 500 most recent games from the Epic API.
  * we only send back the Replay ID as we then create a Replay object for
- * each of these replays
+ * each of these replays, optional flags are supplied by the user to
+ * filter the response from the api.
+ *
+ * On response from the API, this method will insert rows that do not exist
+ * in the database, by using an UNIQUE key constraint on replayId
+ *
+ * @param {string} flag - Either 'custom' or 'featured' to filter by game types
+ * @param {boolean} live - Either true or false to filter by live games
+ * @param {date} recordFrom - Specify the oldest date we can scrape games from
+ *
+ * @return {promise} - Rejects if there were any errors, else returns the array of rows which
+ * were inserted
  */
 
 Replay.latest = function(flag, live, recordFrom) {
@@ -894,10 +1093,19 @@ Replay.latest = function(flag, live, recordFrom) {
     });
 };
 
-/*
- * STATIC
- * Calculates damage at a specific index based on the given player, the damage array
- * and the requested stat
+/**
+ * @getDamageForPlayer (static method):
+ * ------------------------------------
+ * Type: GET
+ * Endpoint: /replay/v2/replay?user=flag_{flag}&live={live}
+ *
+ * Calculates damage at a specific index based on the given player
+ *
+ * @param {object} player - The player who's new damage we want to compute
+ * @param {Array} allPlayerDamage - The array of players so we can find the existing players current damage
+ * and accumulate it by adding the new damage
+ *
+ * @return {object} - Returns the new players damage array so we can update the original array on the caller
  */
 
 Replay.getDamageForPlayer = function(player, allPlayerDamage) {
@@ -926,9 +1134,15 @@ Replay.getDamageForPlayer = function(player, allPlayerDamage) {
     return playerDamage;
 };
 
-/*
- * STATIC
- * Return a object which contains the empty JSON structure for a Replay object
+/**
+ * @getEmptyReplayObject (static method):
+ * --------------------------------------
+ * Returns an empty replay object for new or failed replays
+ *
+ * @param {string} replayId - The id of the replay to be processed
+ * @param {number} checkpointTime - The checkpoint time to start from
+ *
+ * @return {object} - Returns replay object with the set replayId and checkpointTime
  */
 
 Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
@@ -951,9 +1165,12 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
     };
 };
 
-/*
- * STATIC
- * Returns an empty player JSON object for each player we retrieve
+/**
+ * @getEmptyPlayerObject (static method):
+ * --------------------------------------
+ * Returns an empty player object for each player in game
+ *
+ * @return {object} - Returns the empty player object
  */
 
 Replay.getEmptyPlayerObject = function() {

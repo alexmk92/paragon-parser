@@ -8,9 +8,21 @@ var fs = require('fs');
 var Memcached = require('memcached');
 var memcached = new Memcached(process.env.MEMCACHED_HOST + ':' + process.env.MEMCACHED_PORT);
 
-// determines if another worker is already fetching a job
-//var fetching = false;
+// Local lock to determine if we are removing from workers array
 var removing = false;
+
+/**
+ * @Queue :
+ * --------
+ * Create a new Queue object, only one should be created per process, this queue
+ * will reserve jobs with its processId so that each job can be distinguished
+ * on the queue.
+ *
+ * @param {object} db - The mongo db object
+ * @param {number} workers - The amount of workers to run on this process
+ * @param {string} processId - The id of this process, if the server stops or dies
+ * then all of this processes reserved jobs will be released from the queue.
+ */
 
 var Queue = function(db, workers, processId) {
     this.mongoconn = db; // If null, couldn't connect
@@ -21,12 +33,31 @@ var Queue = function(db, workers, processId) {
     this.initializeWorkers();
 };
 
-// Start up the workers
+/**
+ * @initializeWorkers :
+ * -------------------
+ * Based on the amount of workers passed to the constructor, this method will create
+ * each worker.  The queue will then maintain each workers state in memory and
+ * schedule them new work until the process is terminated.
+ */
+
 Queue.prototype.initializeWorkers = function() {
     for(var i = 0; i < this.maxWorkers; i++) {
         this.getNextJob();
     }
 };
+
+/**
+ * @getNextJob :
+ * -------------
+ * Attempts to schedule a new job on the queue, we use memcache here as a scheduled
+ * lock between processes to ensure only one process can make a transaction with SQL at
+ * a time.  The locks are synchronized to ensure that processes on different clusters
+ * cannot access resources at the same time, which would result in a dead-lock.
+ *
+ * If a worker cannot attain the lock, it will keep polling memcached every 0.25s
+ * until it can acquire the lock, only then does work begin on the worker.
+ */
 
 Queue.prototype.getNextJob = function() {
     // Check memcache and make sure we aren't running the job to clear dead replays
@@ -85,6 +116,20 @@ Queue.prototype.getNextJob = function() {
     }.bind(this));
 };
 
+/**
+ * @runTask :
+ * ----------
+ * Checks if the replay already exists in the workers array stored in local process
+ * memory, if it does we get get the next job for the queue, otherwise this method
+ * begins running work for the given replay.
+ *
+ * This talks to the Replay object associated to the current worker and will process
+ * the replay until it succeeds, fails or completes at which point it will return
+ * to @getNextJob for new work
+ *
+ * @param {object} replay - The replay object to process
+ */
+
 Queue.prototype.runTask = function(replay) {
     var found = false;
     this.workers.some(function(workerId) {
@@ -102,8 +147,21 @@ Queue.prototype.runTask = function(replay) {
     }
 };
 
-/*
- * Removes the replay from the workers array
+/**
+ * @workerDone :
+ * -------------
+ * Whenever a replay finishes running work we set a lock in local process memory
+ * allowing us to atomically update the the workers array.
+ *
+ * If the worker gets the lock it splices the worker array of the current worker
+ * and then releases the lock allowing another finished worker to dispose of its
+ * resource.   If the workers fails to get a lock the promise is rejected and the
+ * caller will retry in a defined time set by the caller.
+ *
+ * @param {object} replay - The replay we want to dispose of in local memory
+ *
+ * @return {promise} - Tells the caller if it should schedule a new reques to @workerDone
+ * or if we successfully got the lock and removed the process.
  */
 
 Queue.prototype.workerDone = function(replay) {
@@ -130,9 +188,19 @@ Queue.prototype.workerDone = function(replay) {
     }.bind(this));
 };
 
-/*
- * The replay failed to process for some reason, we remove it from mongo here
- *  as its data could have potentially been corrupted.
+/**
+ * @failed :
+ * ---------
+ * While processing in @Replay.js the processing failed, this can be caused by no replay data being
+ * available, expired replay, error in parser, a bot game being started and stopped.
+ *
+ * When this happens we increment the number of attempts on the specific replay object, delete its
+ * current content from mongo and tell the queue to schedule it 2 minutes from now.
+ *
+ * The 2 minute reschedule creates enough time to solve problems related to no replay data being found,
+ * once this task finishes it calls @getNextJob
+ *
+ * @param {object} replay - The replay which failed
  */
 
 Queue.prototype.failed = function(replay) {
@@ -163,8 +231,16 @@ Queue.prototype.failed = function(replay) {
 
 };
 
-/*
- * Schedules the replay to be revisited at a later date
+/**
+ * @schedule :
+ * -----------
+ * When @Replay finishes processing chunks for a live replay, scheduled will be called to re-serve
+ * this specific replay after 1 minute.
+ *
+ * Upon finishing this method calls @getNextJob and @workerDone.
+ *
+ * @param {object} replay - The Replay to reschedule
+ * @param {number} ms - The amount of ms to delay by
  */
 
 Queue.prototype.schedule = function(replay, ms) {
@@ -189,9 +265,18 @@ Queue.prototype.schedule = function(replay, ms) {
 
 };
 
-/*
- * Removes a specific item from the queue, set its status to completed, this only happens
- * once a file has been fully processed
+/**
+ * @removeItemFromQueue :
+ * ----------------------
+ * When a replay has finished processing in @Replay.js, this method will be called.  If runs
+ * an upsert query against mongo and updates the queue to tell it that it does not need to
+ * be serviced again, preventing any other workers from running it in future.
+ *
+ * This method will only run if it can attain the local removing lock, if it can't it will
+ * wait until the lock is released before it updates SQL and Mongo, completion will result
+ * in @getNextJob being called.
+ *
+ * @param {object} replay - The replay that finished processing
  */
 
 Queue.prototype.removeItemFromQueue = function(replay) {
@@ -220,8 +305,17 @@ Queue.prototype.removeItemFromQueue = function(replay) {
 
 };
 
-/*
- * Removes a dead replay from the queue, this replay will never be serviced again
+/**
+ * @removeDeadReplay :
+ * -------------------
+ * A dead replay occurs in @Replay.js when the http code returned from the API is a 404.  In the
+ * event of this message we know that the replay has expired on epics end we will not be able to
+ * process it in future.
+ *
+ * Therefore we remove it from the queue so we don't waste workers trying to serve it.  Once we
+ * complete this task, this method calls @getNextJob
+ *
+ * @param {object} replay - The replay which doesn't exist in epics API anymore
  */
 
 Queue.prototype.removeDeadReplay = function(replay) {
@@ -244,8 +338,16 @@ Queue.prototype.removeDeadReplay = function(replay) {
 
 };
 
-/*
- * Removes a bot game from the queue
+/**
+ * @removeBotGame :
+ * ----------------
+ * Processing bot games is un-necessary as players cannot gain ELO and Epic do not track bot stats on their API,
+ * because of this we do not process bot games and simply remove them from the queue once @Replay.js
+ * determines it is a bot game.
+ *
+ * Once we remove the bot game this method calls @getNextJob
+ *
+ * @param {object} replay - The bot game replay
  */
 
 Queue.prototype.removeBotGame = function(replay) {
@@ -267,8 +369,15 @@ Queue.prototype.removeBotGame = function(replay) {
 
 };
 
-/*
- * Uploads the replay json file to mongo
+/**
+ * @uploadFile :
+ * -------------
+ * Uploads a processed replayJSON chunk to mongo, this will either be a completed replay
+ * or a partially processed chunk from a scheduled job sent by @scheduled
+ *
+ * @param {object} replay - The replay which should be uploaded (contains replayJSON as a property)
+ * @param {function} callback - Callback function when the upload completes, contains an error
+ * message if it fails, else returns null.
  */
 
 Queue.prototype.uploadFile = function(replay, callback) {
@@ -298,8 +407,14 @@ Queue.prototype.uploadFile = function(replay, callback) {
     }
 };
 
-/*
- * Removes a file from mongo
+/**
+ * @deleteFile :
+ * -------------
+ * Removes the given replay from mongo, this happens when a replay fails or expires.
+ * We do not pass a callback here as the point of which mongo deletes the record
+ * is not important to the continued execution of the process.
+ *
+ * @param {object} replay - The replay to delete
  */
 
 Queue.prototype.deleteFile = function(replay) {
@@ -319,14 +434,27 @@ Queue.prototype.deleteFile = function(replay) {
     }
 };
 
-/*
- * STATIC Unbinds all locked events from the Queue
+/**
+ * @disposeOfLockedReservedEvents :
+ * --------------------------------
+ * When a process dies we need some way of disposing of any resources that it had reserved.  We handle this
+ * by listening to the process.SIGNIT event in @parser.js.  If the process dies we update SQL by
+ * removing all instances of resources owned by this process allowing other process workers to start
+ * running work on them.
+ *
+ * We also set its completed status back to false and its checkpoint time to 0 to prevent half processed
+ * replays from being uploaded.
+ *
+ * @param {object} processId - The process id to be disposed of, this consists of the process PID and a
+ * random 8 digit alphanumeric string so we don't get collisions across boxes.
+ * @param {function} callback - Callback to determine when the query has ran, allowing the memcached lock to
+ * be released allowing other workers to start transacting with MySQL again.
  */
 
 Queue.disposeOfLockedReservedEvents = function(processId, callback) {
     Logger.writeToConsole('disposing of locked events');
     var conn = new Connection();
-    var query = 'UPDATE queue SET reserved_by=null WHERE reserved_by="' + processId + '"';
+    var query = 'UPDATE queue SET reserved_by=null, checkpointTime=0, completed=0 WHERE reserved_by="' + processId + '"';
     conn.query(query, function() {
         Logger.writeToConsole('disposed');
         callback();

@@ -35,7 +35,16 @@ var workers = process.env.WORKERS || 1;
 // Generate a unique ID for this process so that we can identify it in MySQL
 var processId = process.pid + '_' + Math.random().toString(12).substr(2, 8);
 
-// Now start the app
+/**
+ * @connect :
+ * ----------
+ * Makes a connection to mongo with the URL generated above, this will either be a URL based on a
+ * Mongo cluster, or will be a url containing the single HOST:PORT combination.
+ *
+ * Once we make a successful connection a new Queue object is created if one doesn't already exist,
+ * if anything fails here then PM2 will restart the process.
+ */
+
 MongoClient.connect(url, function(err, db) {
     mongodb = db;
     if(err) {
@@ -46,8 +55,18 @@ MongoClient.connect(url, function(err, db) {
     }
 });
 
-// When another cluster isn't cleaning up, this allows us to remove all jobs for this specific process,
-// this prevents the cleanup function from removing work for every single process running on any box
+/**
+ * @cleanup :
+ * ----------
+ * When a SIGNIT event is received by the process, we dispose of any open resources by attaining a
+ * lock to memcached and then call @Queue.disposeOfLockedReservedEvents to unreserve any resources
+ * allocated to this queue, allowing other processes to work on them.
+ *
+ * If this function cannot attain the lock from memcached, it will poll memcached every 2.5s
+ * until it can run its query.  The lock will dispose itself after 15 seconds if it cannot
+ * be released.
+ */
+
 function cleanup() {
     memcached.add('clearDeadReservedReplays', true, 15, function(err) {
         if(err) {
@@ -75,5 +94,10 @@ function cleanup() {
 
 // If a process dies, dispose of its reserved events
 process.on('SIGINT', function() {
+    cleanup();
+});
+// If a process reaches an uncaught exception dispose of it
+process.on('uncaughtException', function(err) {
+    Logger.writeToConsole('[PARSER] Uncaught exception in Parser: ', err);
     cleanup();
 });
