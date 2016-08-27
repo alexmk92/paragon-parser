@@ -29,62 +29,60 @@ Queue.prototype.initializeWorkers = function() {
 };
 
 Queue.prototype.getNextJob = function() {
-    // Keep trying to get the next job every 0.05s, this is so we don't spike memory usage on our little 512MB boxes
-    // by making too many requests!
+    // Check memcache and make sure we aren't running the job to clear dead replays
     memcached.get('clearDeadReservedReplays', function(err, data) {
-        if(err || data) {
+        if(err || typeof data === 'undefined' || data === null) {
+            if(this.workers.length < this.maxWorkers) {
+                memcached.add('locked', true, 2, function(err) {
+                    if(err) {
+                        //console.log('[MEMCACHED ERR] '.red, err);
+                        setTimeout(function() {
+                            this.getNextJob();
+                        }.bind(this), 250);
+                    } else {
+                        var conn = new Connection();
+                        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
 
+                        // Set the priority on the queue back to 0 once we start working it
+                        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+                        var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+                        var updateQuery = 'UPDATE queue SET reserved_by="' + this.processId + '", priority=0, reserved=1';
+
+                        conn.selectUpdate(selectQuery, updateQuery, function(replay) {
+                            memcached.del('locked', function(err) {
+                                if(err) {
+                                    Logger.writeToConsole(err.red);
+                                    setTimeout(function() {
+                                        this.getNextJob();
+                                    }.bind(this), 2000);
+                                } else {
+                                    Logger.writeToConsole('deleted cache lock'.green);
+                                    if(typeof replay !== 'undefined' && replay !== null) {
+                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                    } else {
+                                        // we dont want to spam requests to get jobs if the queue is empty
+                                        setTimeout(function() {
+                                            this.getNextJob();
+                                        }.bind(this), 250);
+                                    }
+                                }
+                            }.bind(this));
+                        }.bind(this));
+                    }
+                }.bind(this));
+            } else {
+                Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
+                setTimeout(function() {
+                    this.getNextJob();
+                }.bind(this), 250);
+            }
         } else {
-            console.log(data);
+            Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
+            setTimeout(function() {
+                this.getNextJob();
+            }.bind(this), 250);
         }
-    });
-
-    /*
-     if(this.workers.length < this.maxWorkers) {
-     memcached.add('locked', true, 2, function(err) {
-     if(err) {
-     //console.log('[MEMCACHED ERR] '.red, err);
-     setTimeout(function() {
-     this.getNextJob();
-     }.bind(this), 250);
-     } else {
-     var conn = new Connection();
-     //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
-
-     // Set the priority on the queue back to 0 once we start working it
-     //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-     var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-     var updateQuery = 'UPDATE queue SET reserved_by="' + this.processId + '", priority=0, reserved=1';
-
-     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-     memcached.del('locked', function(err) {
-     if(err) {
-     Logger.writeToConsole(err.red);
-     setTimeout(function() {
-     this.getNextJob();
-     }.bind(this), 2000);
-     } else {
-     Logger.writeToConsole('deleted cache lock'.green);
-     if(typeof replay !== 'undefined' && replay !== null) {
-     this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-     } else {
-     // we dont want to spam requests to get jobs if the queue is empty
-     setTimeout(function() {
-     this.getNextJob();
-     }.bind(this), 250);
-     }
-     }
-     }.bind(this));
-     }.bind(this));
-     }
-     }.bind(this));
-     } else {
-     Logger.writeToConsole('not enough jobs running')
-     setTimeout(function() {
-     this.getNextJob();
-     }.bind(this), 250);
-     }
-     */
+    }.bind(this));
 };
 
 Queue.prototype.runTask = function(replay) {
