@@ -50,7 +50,7 @@ MongoClient.connect(url, function(err, db) {
     if(err) {
         Logger.writeToConsole('[MONGODB] Error connecting to MongoDB'.red, err);
     } else {
-        Logger.writeToConsole('[PARSER] Process: ' + processId + ' is building a queue with '.cyan + workers + ' workers'.cyan);
+        Logger.writeToConsole('[PARSER] Process: '.cyan + processId + ' is building a queue with '.cyan + workers + ' workers'.cyan);
         if(!queue) queue = new Queue(mongodb, workers, processId);
     }
 });
@@ -98,6 +98,6 @@ process.on('SIGINT', function() {
 });
 // If a process reaches an uncaught exception dispose of it
 process.on('uncaughtException', function(err) {
-    Logger.writeToConsole('[PARSER] Uncaught exception in Parser: ', err);
+    Logger.writeToConsole('[PARSER] Uncaught exception in Parser: '.red, err);
     cleanup();
 });
