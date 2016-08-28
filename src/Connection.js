@@ -50,7 +50,6 @@ Connection.prototype.end = function() {
  */
 
 Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback) {
-    selectQuery = "select * from queue where replayId='c5e1a64527fd4778b5e1c17b1253540f' FOR UPDATE";
     this.connection.connect(function (err) {
         if(err) {
             Logger.writeToConsole("[MYSQL] Error: Connection NOT made".red + err);
