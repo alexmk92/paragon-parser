@@ -87,7 +87,7 @@ Queue.prototype.getNextJob = function() {
                                         this.getNextJob();
                                     }.bind(this), 1500);
                                 } else {
-                                    Logger.writeToConsole('deleted cache lock'.green);
+                                    //Logger.writeToConsole('deleted cache lock'.green);
                                     if(typeof replay !== 'undefined' && replay !== null) {
                                         this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                                     } else {
