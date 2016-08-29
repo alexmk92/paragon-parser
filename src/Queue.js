@@ -69,7 +69,7 @@ Queue.prototype.getNextJob = function() {
                         //console.log('[MEMCACHED ERR] '.red, err);
                         setTimeout(function() {
                             this.getNextJob();
-                        }.bind(this), 150);
+                        }.bind(this), 50);
                     } else {
                         var conn = new Connection();
                         //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
@@ -85,7 +85,7 @@ Queue.prototype.getNextJob = function() {
                                     Logger.writeToConsole(err.red);
                                     setTimeout(function() {
                                         this.getNextJob();
-                                    }.bind(this), 150);
+                                    }.bind(this), 50);
                                 } else {
                                     //Logger.writeToConsole('deleted cache lock'.green);
                                     if(typeof replay !== 'undefined' && replay !== null) {
@@ -94,7 +94,7 @@ Queue.prototype.getNextJob = function() {
                                         // we dont want to spam requests to get jobs if the queue is empty
                                         setTimeout(function() {
                                             this.getNextJob();
-                                        }.bind(this), 150);
+                                        }.bind(this), 50);
                                     }
                                 }
                             }.bind(this));
@@ -105,13 +105,13 @@ Queue.prototype.getNextJob = function() {
                 //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
                 setTimeout(function() {
                     this.getNextJob();
-                }.bind(this), 150);
+                }.bind(this), 50);
             }
         } else {
             //Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
             setTimeout(function() {
                 this.getNextJob();
-            }.bind(this), 150);
+            }.bind(this), 50);
         }
     }.bind(this));
 };
@@ -228,7 +228,7 @@ Queue.prototype.failed = function(replay) {
             this.workerDone(replay).then(function() {
                 this.getNextJob();
             }.bind(this));
-        }.bind(this), 150)
+        }.bind(this), 50)
     }.bind(this));
 
 };
@@ -264,7 +264,7 @@ Queue.prototype.schedule = function(replay, ms) {
             this.workerDone(replay).then(function() {
                 this.getNextJob();
             }.bind(this));
-        }.bind(this), 150)
+        }.bind(this), 50)
     }.bind(this));
 
 };
@@ -306,7 +306,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
             this.workerDone(replay).then(function() {
                 this.getNextJob();
             }.bind(this));
-        }.bind(this), 150)
+        }.bind(this), 50)
     }.bind(this));
 
 };
@@ -341,7 +341,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
             this.workerDone(replay).then(function() {
                 this.getNextJob();
             }.bind(this));
-        }.bind(this), 150)
+        }.bind(this), 50)
     }.bind(this));
 
 };
@@ -374,7 +374,7 @@ Queue.prototype.removeBotGame = function(replay) {
             this.workerDone(replay).then(function() {
                 this.getNextJob();
             }.bind(this));
-        }.bind(this), 150)
+        }.bind(this), 50)
     }.bind(this));
 
 };
