@@ -1,4 +1,5 @@
 require('dotenv').config();
+var colors = require('colors');
 
 var Logger = require('./src/Logger');
 
