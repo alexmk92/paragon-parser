@@ -228,7 +228,9 @@ Queue.prototype.failed = function(replay) {
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
-            this.workerDone(replay);
+            this.workerDone(replay).then(function() {
+                this.getNextJob();
+            }.bind(this));
         }.bind(this), 150)
     }.bind(this));
 
@@ -262,7 +264,9 @@ Queue.prototype.schedule = function(replay, ms) {
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
-            this.workerDone(replay);
+            this.workerDone(replay).then(function() {
+                this.getNextJob();
+            }.bind(this));
         }.bind(this), 150)
     }.bind(this));
 
@@ -302,7 +306,9 @@ Queue.prototype.removeItemFromQueue = function(replay) {
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
-            this.workerDone(replay);
+            this.workerDone(replay).then(function() {
+                this.getNextJob();
+            }.bind(this));
         }.bind(this), 150)
     }.bind(this));
 
@@ -335,7 +341,9 @@ Queue.prototype.removeDeadReplay = function(replay) {
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
-            this.workerDone(replay);
+            this.workerDone(replay).then(function() {
+                this.getNextJob();
+            }.bind(this));
         }.bind(this), 150)
     }.bind(this));
 
@@ -366,7 +374,9 @@ Queue.prototype.removeBotGame = function(replay) {
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
-            this.workerDone(replay);
+            this.workerDone(replay).then(function() {
+                this.getNextJob();
+            }.bind(this));
         }.bind(this), 150)
     }.bind(this));
 
