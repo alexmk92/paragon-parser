@@ -71,16 +71,30 @@ function cleanup() {
     if(queue) queue.terminate();
     memcached.add('shuttingDownProcess', true, 15, function(err) {
         if(err) {
-            memcached.del('shuttingDownProcess', function() {});
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
             setTimeout(function() {
                 cleanup();
-            }, 10);
+            }, 250);
         } else {
             if(queue) {
                 queue.disposeOfLockedReservedEvents(function() {
-                    memcached.del('shuttingDownProcess', function() {});
+                    memcached.del('shuttingDownProcess', function(err) {
+                        if(err) {
+                            Logger.writeToConsole('[MEMCACHE] Failed to delete shuttingDownProcess lock'.red);
+                        } else {
+                            Logger.writeToConsole('[MEMCACHE] Deleted shuttingDownProcess lock'.green);
+                        }
+                    });
                     Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
+                    process.exit(err ? 1 : 0);
+                });
+            } else {
+                memcached.del('shuttingDownProcess', function(err) {
+                    if(err) {
+                        Logger.writeToConsole('[MEMCACHE] Failed to delete shuttingDownProcess lock'.red);
+                    } else {
+                        Logger.writeToConsole('[MEMCACHE] Deleted shuttingDownProcess lock'.green);
+                    }
                     process.exit(err ? 1 : 0);
                 });
             }

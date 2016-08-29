@@ -181,7 +181,7 @@ Queue.prototype.getNextJob = function() {
                 }.bind(this), 10);
             }
         } else {
-            Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
+            //Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
             setTimeout(function() {
                 this.getNextJob();
             }.bind(this), 5);
