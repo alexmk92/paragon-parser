@@ -88,9 +88,9 @@ Queue.prototype.getNextJob = function() {
                             replayObj.forEach(function(replayId) {
                                 replays += '"' + replayId + '",';
                             });
-                            replays.substr(0, replays.length - 1);
+                            replays = replays.substr(0, replays.length - 1);
                             if(replays !== "") {
-                                whereClause = 'AND NOT IN (' + replays + ')';
+                                whereClause = 'AND replayId NOT IN (' + replays + ')';
                             }
                         }
                     }
