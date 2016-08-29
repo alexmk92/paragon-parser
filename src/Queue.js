@@ -627,7 +627,7 @@ Queue.prototype.disposeOfLockedReservedEvents = function(callback) {
                         return x == true;
                     });
 
-                    memcached.replace('replays', JSON.parse(replays), function(err) {
+                    memcached.replace('replays', JSON.stringify(replays), function(err) {
                         if(err) {
                             Logger.writeToConsole('Unable to update the replays object'.red, err);
                             callback();
