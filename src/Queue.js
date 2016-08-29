@@ -80,6 +80,7 @@ Queue.prototype.getNextJob = function() {
                         console.log('Error getting replays: '.red, err);
                         whereClause = "";
                     } else {
+                        console.log('data is: ', data);
                         var replayObj = JSON.parse(data);
                         console.log('replay object is: ', replayObj);
                         var replays = "";
