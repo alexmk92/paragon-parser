@@ -81,12 +81,14 @@ Queue.prototype.getNextJob = function() {
                     } else {
                         var replayObj = JSON.parse(data);
                         var replays = "";
-                        replayObj.forEach(function(replayId) {
-                            replays += '"' + replayId + '",';
-                        });
-                        replays.substr(0, replays.length - 1);
-                        if(replays !== "") {
-                            whereClause = 'AND NOT IN (' + replays + ')';
+                        if(replayObj.length > 0) {
+                            replayObj.forEach(function(replayId) {
+                                replays += '"' + replayId + '",';
+                            });
+                            replays.substr(0, replays.length - 1);
+                            if(replays !== "") {
+                                whereClause = 'AND NOT IN (' + replays + ')';
+                            }
                         }
                     }
                     // This happens, regardless
