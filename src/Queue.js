@@ -127,7 +127,8 @@ Queue.prototype.getNextJob = function() {
                                         }
                                     }.bind(this));
                                 } else {
-                                    data.forEach(function(replayId) {
+                                    var replays = JSON.parse(data);
+                                    replays.forEach(function(replayId) {
                                         existsInMemcached = replayId == replay.replayId;
                                         return existsInMemcached;
                                     });
@@ -140,8 +141,8 @@ Queue.prototype.getNextJob = function() {
                                         }.bind(this));
                                     } else {
                                         // Update the memcached object of replays
-                                        data.push(replay.replayId);
-                                        memcached.replace('replays', JSON.stringify(data), 300, function(err) {
+                                        replays.push(replay.replayId);
+                                        memcached.replace('replays', JSON.stringify(replays), 300, function(err) {
                                             if(err) {
                                                 console.log('couldnt replace in memcached: '.red, err);
                                                 setTimeout(function() {
