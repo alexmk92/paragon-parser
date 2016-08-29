@@ -110,8 +110,8 @@ Queue.prototype.getNextJob = function() {
                         } else {
                             var existsInMemcached = false;
                             memcached.get('replays', function(err, data) {
-                                if(err) {
-                                    console.log('error getting replays from memcached');
+                                if(err || typeof data === 'undefined' || data === null) {
+                                    console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
                                     memcached.del('locked', function(err) {
                                         setTimeout(function() {
                                             this.getNextJob();
@@ -288,8 +288,8 @@ Queue.prototype.workerDone = function(replay) {
 
 Queue.prototype.updateMemcachedReplays = function(replay, callback) {
     memcached.get('replays', function(err, data) {
-        if(err) {
-            Logger.writeToConsole('Error when getting memcached replay:'.red, err);
+        if(err || typeof data === 'undefined' || data === null) {
+            Logger.writeToConsole('Error when getting, was either undefined or null, got memcached error:'.red, err);
             callback();
         } else {
             var replays = JSON.parse(data);
