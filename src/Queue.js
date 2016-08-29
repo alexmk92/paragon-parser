@@ -300,7 +300,7 @@ Queue.prototype.updateMemcachedReplays = function(replay, callback) {
                 return false;
             });
             replays.splice(replayIndex, 1);
-            memcached.replace('replays', JSON.parse(replays), 300, function(err) {
+            memcached.replace('replays', JSON.stringify(replays), 300, function(err) {
                 if(err) {
                     Logger.writeToConsole('Error when updating memcached replays:'.red, err);
                     callback();
