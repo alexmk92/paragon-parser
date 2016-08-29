@@ -601,7 +601,7 @@ Queue.prototype.deleteFile = function(replay) {
  * be released allowing other workers to start transacting with MySQL again.
  */
 
-Queue.disposeOfLockedReservedEvents = function(callback) {
+Queue.prototype.disposeOfLockedReservedEvents = function(callback) {
     memcached.get('replays', function(err, data) {
          if(err || typeof data === 'undefined' || data === null) {
              callback();

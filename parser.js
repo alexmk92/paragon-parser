@@ -77,11 +77,13 @@ function cleanup() {
                 cleanup();
             }, 10);
         } else {
-            if(queue) queue.disposeOfLockedReservedEvents(function() {
-                memcached.del('shuttingDownProcess', function() {});
-                Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
-                process.exit(err ? 1 : 0);
-            });
+            if(queue) {
+                queue.disposeOfLockedReservedEvents(function() {
+                    memcached.del('shuttingDownProcess', function() {});
+                    Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
+                    process.exit(err ? 1 : 0);
+                });
+            }
         }
     }.bind(this));
 }
