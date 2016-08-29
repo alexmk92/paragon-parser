@@ -64,9 +64,10 @@ Queue.prototype.getNextJob = function() {
     memcached.get('clearDeadReservedReplays', function(err, data) {
         if(err || typeof data === 'undefined' || data === null) {
             if(this.workers.length < this.maxWorkers) {
-                memcached.add('locked', true, 2, function(err) {
+                memcached.add('locked', true, 10, function(err) {
                     if(err) {
                         //console.log('[MEMCACHED ERR] '.red, err);
+                        Logger.writeToConsole('Memcached already has a lock'.yellow);
                         setTimeout(function() {
                             this.getNextJob();
                         }.bind(this), 10);
