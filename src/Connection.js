@@ -132,7 +132,6 @@ Connection.prototype.selectAndInsertToMemcached = function(queryString, callback
                 }
                 if(typeof rows !== "undefined" && rows && rows.length > 0) {
                     var replay = rows[0];
-                    Logger.writeToConsole('Got replay: ', replay);
                     callback(replay);
                 } else {
                     callback(null);

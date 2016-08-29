@@ -85,9 +85,16 @@ Queue.prototype.getNextJob = function() {
                                     this.getNextJob();
                                 }.bind(this), 10);
                             } else {
-                                var replayObj = { replayId : replay.replayId, attempts: replay.attempts, checkpointTime: replay.checkpointTime };
-                                Logger.writeToConsole('Replay object is: ', replayObj);
-                                //memcached.add(replay.replayId, JSON.stringify(replay), )
+                                memcached.add(replay.replayId, true, 300, function(err) {
+                                    if(err) {
+                                        setTimeout(function() {
+                                            this.getNextJob();
+                                        }.bind(this), 10);
+                                    } else {
+                                        console.log('Running work, got replay: ', replay);
+                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                    }
+                                }.bind(this));
                             }
                         });
                         
@@ -181,20 +188,26 @@ Queue.prototype.runTask = function(replay) {
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
         if(!removing) {
-            removing = true;
-            var index = -1;
-            this.workers.some(function(workerId, i) {
-                if(workerId === replay.replayId) {
-                    index = i;
-                    return true;
+            memcached.del(replay.replayId, function(err) {
+                if(err) {
+                    reject();
+                } else {
+                    removing = true;
+                    var index = -1;
+                    this.workers.some(function(workerId, i) {
+                        if(workerId === replay.replayId) {
+                            index = i;
+                            return true;
+                        }
+                        return false;
+                    });
+                    if(index > -1) {
+                        this.workers.splice(index, 1);
+                        Logger.writeToConsole('[QUEUE] Worker '.cyan + (index+1) + ' was successfully removed from the queue, there are '.cyan + this.workers.length + '/'.cyan + this.maxWorkers + ' workers running'.cyan);
+                    }
+                    resolve();
                 }
-                return false;
-            });
-            if(index > -1) {
-                this.workers.splice(index, 1);
-                Logger.writeToConsole('[QUEUE] Worker '.cyan + (index+1) + ' was successfully removed from the queue, there are '.cyan + this.workers.length + '/'.cyan + this.maxWorkers + ' workers running'.cyan);
-            }
-            resolve();
+            }.bind(this));
         } else {
             // Wait for the lock to release so we can remove a resource
             reject();
