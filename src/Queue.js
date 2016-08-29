@@ -99,7 +99,7 @@ Queue.prototype.getNextJob = function() {
             }
         }.bind(this));
     } else {
-        Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
+        //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
         setTimeout(function() {
             this.getNextJob();
         }.bind(this), 150);
