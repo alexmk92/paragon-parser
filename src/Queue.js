@@ -251,7 +251,7 @@ Queue.prototype.failed = function(replay) {
                     Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
                     this.getNextJob();
                 }
-            });
+            }.bind(this));
         }.bind(this));
     }.bind(this), function() {
         removing = false;
