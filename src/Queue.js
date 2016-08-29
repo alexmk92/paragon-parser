@@ -74,7 +74,7 @@ Queue.prototype.getNextJob = function() {
 
                 // Set the priority on the queue back to 0 once we start working it
                 //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() AND attempts < 10 LIMIT 1';
+                var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() LIMIT 1';
                 //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
 
                 conn.selectAndInsertToMemcached(selectQuery, function(replay) {
@@ -91,7 +91,7 @@ Queue.prototype.getNextJob = function() {
                                     setTimeout(function() {
                                         this.getNextJob();
                                     }.bind(this), 10);
-                                });
+                                }.bind(this));
                             } else {
                                 memcached.del('locked', function(err) {
                                     if(err) {
