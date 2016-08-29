@@ -81,25 +81,21 @@ Queue.prototype.getNextJob = function() {
                         
                         conn.selectAndInsertToMemcached(selectQuery, function(replay) {
                             if(typeof replay === 'undefined' || replay === null) {
-                                console.log('replay was null')
                                 setTimeout(function() {
                                     this.getNextJob();
                                 }.bind(this), 10);
                             } else {
-                                console.log('adding replay: ', replay.replayId + ' to memcached');
                                 memcached.add(replay.replayId, true, 300, function(err) {
                                     if(err) {
-                                        console.log('errored when adding to memcached: '.red, err);
                                         setTimeout(function() {
                                             this.getNextJob();
                                         }.bind(this), 10);
                                     } else {
-                                        console.log('Running work, got replay: ', replay);
-                                        //this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                                     }
                                 }.bind(this));
                             }
-                        });
+                        }.bind(this));
                         
                         /*
                         conn.selectUpdate(selectQuery, updateQuery, function(replay) {
