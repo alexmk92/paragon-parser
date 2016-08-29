@@ -207,6 +207,7 @@ Queue.prototype.workerDone = function(replay) {
  */
 
 Queue.prototype.failed = function(replay) {
+    Logger.writeToConsole('Called from failed'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -249,6 +250,7 @@ Queue.prototype.failed = function(replay) {
  */
 
 Queue.prototype.schedule = function(replay, ms) {
+    Logger.writeToConsole('Called from schedule'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -287,6 +289,7 @@ Queue.prototype.schedule = function(replay, ms) {
  */
 
 Queue.prototype.removeItemFromQueue = function(replay) {
+    Logger.writeToConsole('Called from remove item from queue'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -328,6 +331,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
  */
 
 Queue.prototype.removeDeadReplay = function(replay) {
+    Logger.writeToConsole('Called from remove dead replay'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -362,6 +366,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
  */
 
 Queue.prototype.removeBotGame = function(replay) {
+    Logger.writeToConsole('Called from remove bot game'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
