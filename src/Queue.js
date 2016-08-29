@@ -114,7 +114,7 @@ Queue.prototype.getNextJob = function() {
                                 if(err || typeof data === 'undefined' || data === null) {
                                     console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
                                     // Nothing in memcached, create it
-                                    memcached.add('replays', [replay.replayId], 300, function(err) {
+                                    memcached.add('replays', JSON.stringify([replay.replayId]), 300, function(err) {
                                         if(err) {
                                             console.log('error when creating replays object in memcached:'.red, err);
                                             memcached.del('locked', function(err) {
