@@ -4,7 +4,7 @@
  *  Please ensure that pm2 is installed globally on the box running this software first
  *  by running
  *      > npm install pm2 -g
- *  It is not installed as a dependency on this package as PM2 can be ran as a container
+ *  It is not installed  as a dependency on this package as PM2 can be ran as a container
  *  for many node apps on the same system.
  */
 

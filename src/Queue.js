@@ -91,10 +91,10 @@ Queue.prototype.getNextJob = function() {
                         var whereClause = "";
                         memcached.get('replays', function(err, data) {
                             if(err || typeof data === 'undefined' || data === null) {
-                                console.log('replays property in memcached was empty, got error message: '.red, err);
+                                Logger.writeToConsole('replays property in memcached was empty, got error message: '.red, err);
                                 whereClause = "";
                             } else {
-                                console.log('got data: ', data);
+                                Logger.writeToConsole('got data: ', data);
                                 var replayObj = JSON.parse(data);
                                 //console.log('replay object is: ', replayObj);
                                 var replays = "";
@@ -116,7 +116,7 @@ Queue.prototype.getNextJob = function() {
 
                             conn.selectAndInsertToMemcached(selectQuery, function(replay) {
                                 if(typeof replay === 'undefined' || replay === null) {
-                                    console.log('Couldnt find a replay, getting next job: '.red);
+                                    Logger.writeToConsole('Couldnt find a replay, getting next job: '.red);
                                     memcached.del('locked', function(err) {
                                         setTimeout(function() {
                                             this.getNextJob();
@@ -126,11 +126,11 @@ Queue.prototype.getNextJob = function() {
                                     var existsInMemcached = false;
                                     memcached.get('replays', function(err, data) {
                                         if(err || typeof data === 'undefined' || data === null) {
-                                            console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
+                                            Logger.writeToConsole('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
                                             // Nothing in memcached, create it
                                             memcached.add('replays', JSON.stringify([replay.replayId]), 300, function(err) {
                                                 if(err) {
-                                                    console.log('error when creating replays object in memcached:'.red, err);
+                                                    Logger.writeToConsole('error when creating replays object in memcached:'.red, err);
                                                     memcached.del('locked', function(err) {
                                                         setTimeout(function() {
                                                             this.getNextJob();
@@ -147,7 +147,7 @@ Queue.prototype.getNextJob = function() {
                                                 return existsInMemcached;
                                             });
                                             if(existsInMemcached) {
-                                                console.log('Already exists in memcached: ' + replay.replayId);
+                                                Logger.writeToConsole('Already exists in memcached: ' + replay.replayId);
                                                 memcached.del('locked', function(err) {
                                                     setTimeout(function() {
                                                         this.getNextJob();
@@ -158,7 +158,7 @@ Queue.prototype.getNextJob = function() {
                                                 replays.push(replay.replayId);
                                                 memcached.replace('replays', JSON.stringify(replays), 300, function(err) {
                                                     if(err) {
-                                                        console.log('couldnt replace in memcached: '.red, err);
+                                                        Logger.writeToConsole('couldnt replace in memcached: '.red, err);
                                                         setTimeout(function() {
                                                             this.getNextJob();
                                                         }.bind(this), 10);
@@ -201,7 +201,7 @@ Queue.prototype.getNextJob = function() {
 Queue.prototype.addReplayToMemcached = function(replay) {
     memcached.add(replay.replayId, true, 300, function(err) {
         if(err) {
-            console.log('Replay: ' + replay.replayId + ' was already in memcached, getting next job'.red, err);
+            Logger.writeToConsole('Replay: ' + replay.replayId + ' was already in memcached, getting next job'.red, err);
             memcached.del('locked', function(err) {
                 setTimeout(function() {
                     this.getNextJob();
@@ -210,7 +210,7 @@ Queue.prototype.addReplayToMemcached = function(replay) {
         } else {
             memcached.del('locked', function(err) {
                 if(err) {
-                    console.log('Replay: ' + replay.replayId + ' failed to delete lock, getting next job'.red, err);
+                    Logger.writeToConsole('Replay: ' + replay.replayId + ' failed to delete lock, getting next job'.red, err);
                     setTimeout(function() {
                         this.getNextJob();
                     }.bind(this), 10);
