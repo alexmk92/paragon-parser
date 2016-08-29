@@ -8,9 +8,6 @@ var fs = require('fs');
 var Memcached = require('memcached');
 var memcached = new Memcached(process.env.MEMCACHED_HOST + ':' + process.env.MEMCACHED_PORT);
 
-// Local lock to determine if we are removing from workers array
-var removing = false;
-
 /**
  * @Queue :
  * --------
@@ -30,7 +27,22 @@ var Queue = function(db, workers, processId) {
     this.processId = processId;
     this.workers = [];
 
+    // Local lock to determine if we are removing from workers array
+    this.terminating = false;
+    this.removing = false;
+
     this.initializeWorkers();
+};
+
+/**
+ * @terminate :
+ * ------------
+ * Sent from the queue owner, tells the queue that it is shutting down preventing
+ * the workers array to be altered
+ */
+
+Queue.prototype.terminate = function() {
+    terminating = true;
 };
 
 /**
@@ -61,111 +73,120 @@ Queue.prototype.initializeWorkers = function() {
 
 Queue.prototype.getNextJob = function() {
     // Check memcache and make sure we aren't running the job to clear dead replays
-    if(this.workers.length < this.maxWorkers) {
-        memcached.add('locked', true, 2, function(err) {
-            if(err) {
-                //console.log('[MEMCACHED ERR] '.red, err);
+    memcached.get('shuttingDownProcess', function(err, data) {
+        if(err || typeof data === 'undefined' || data === null) {
+            if(this.workers.length < this.maxWorkers) {
+                memcached.add('locked', true, 2, function(err) {
+                    if(err) {
+                        //console.log('[MEMCACHED ERR] '.red, err);
+                        setTimeout(function() {
+                            this.getNextJob();
+                        }.bind(this), 10);
+                    } else {
+                        var conn = new Connection();
+                        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
+
+                        // Set the priority on the queue back to 0 once we start working it
+                        // Build a query string of all existing replays
+                        var whereClause = "";
+                        memcached.get('replays', function(err, data) {
+                            if(err || typeof data === 'undefined' || data === null) {
+                                console.log('replays property in memcached was empty, got error message: '.red, err);
+                                whereClause = "";
+                            } else {
+                                console.log('got data: ', data);
+                                var replayObj = JSON.parse(data);
+                                //console.log('replay object is: ', replayObj);
+                                var replays = "";
+                                if(replayObj.length > 0) {
+                                    replayObj.forEach(function(replayId) {
+                                        replays += '"' + replayId + '",';
+                                    });
+                                    replays = replays.substr(0, replays.length - 1);
+                                    if(replays !== "") {
+                                        whereClause = 'AND replayId NOT IN (' + replays + ')';
+                                    }
+                                }
+                            }
+                            // This happens, regardless
+                            var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' ORDER BY priority DESC LIMIT 1';
+                            //var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' LIMIT 1';
+                            //console.log('Query is: '.yellow, selectQuery);
+                            //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
+
+                            conn.selectAndInsertToMemcached(selectQuery, function(replay) {
+                                if(typeof replay === 'undefined' || replay === null) {
+                                    console.log('Couldnt find a replay, getting next job: '.red);
+                                    memcached.del('locked', function(err) {
+                                        setTimeout(function() {
+                                            this.getNextJob();
+                                        }.bind(this), 10);
+                                    }.bind(this));
+                                } else {
+                                    var existsInMemcached = false;
+                                    memcached.get('replays', function(err, data) {
+                                        if(err || typeof data === 'undefined' || data === null) {
+                                            console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
+                                            // Nothing in memcached, create it
+                                            memcached.add('replays', JSON.stringify([replay.replayId]), 300, function(err) {
+                                                if(err) {
+                                                    console.log('error when creating replays object in memcached:'.red, err);
+                                                    memcached.del('locked', function(err) {
+                                                        setTimeout(function() {
+                                                            this.getNextJob();
+                                                        }.bind(this), 10);
+                                                    }.bind(this));
+                                                } else {
+                                                    this.addReplayToMemcached(replay);
+                                                }
+                                            }.bind(this));
+                                        } else {
+                                            var replays = JSON.parse(data);
+                                            replays.forEach(function(replayId) {
+                                                existsInMemcached = replayId == replay.replayId;
+                                                return existsInMemcached;
+                                            });
+                                            if(existsInMemcached) {
+                                                console.log('Already exists in memcached: ' + replay.replayId);
+                                                memcached.del('locked', function(err) {
+                                                    setTimeout(function() {
+                                                        this.getNextJob();
+                                                    }.bind(this), 10);
+                                                }.bind(this));
+                                            } else {
+                                                // Update the memcached object of replays
+                                                replays.push(replay.replayId);
+                                                memcached.replace('replays', JSON.stringify(replays), 300, function(err) {
+                                                    if(err) {
+                                                        console.log('couldnt replace in memcached: '.red, err);
+                                                        setTimeout(function() {
+                                                            this.getNextJob();
+                                                        }.bind(this), 10);
+                                                    } else {
+                                                        this.addReplayToMemcached(replay);
+                                                    }
+                                                }.bind(this));
+                                            }
+                                        }
+                                    }.bind(this));
+                                }
+                            }.bind(this));
+                        }.bind(this));
+                    }
+                }.bind(this));
+            } else {
+                //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
                 setTimeout(function() {
                     this.getNextJob();
                 }.bind(this), 10);
-            } else {
-                var conn = new Connection();
-                //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
-
-                // Set the priority on the queue back to 0 once we start working it
-                // Build a query string of all existing replays
-                var whereClause = "";
-                memcached.get('replays', function(err, data) {
-                    if(err || typeof data === 'undefined' || data === null) {
-                        console.log('replays property in memcached was empty, got error message: '.red, err);
-                        whereClause = "";
-                    } else {
-                        console.log('got data: ', data);
-                        var replayObj = JSON.parse(data);
-                        //console.log('replay object is: ', replayObj);
-                        var replays = "";
-                        if(replayObj.length > 0) {
-                            replayObj.forEach(function(replayId) {
-                                replays += '"' + replayId + '",';
-                            });
-                            replays = replays.substr(0, replays.length - 1);
-                            if(replays !== "") {
-                                whereClause = 'AND replayId NOT IN (' + replays + ')';
-                            }
-                        }
-                    }
-                    // This happens, regardless
-                    var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' ORDER BY priority DESC LIMIT 1';
-                    //var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' LIMIT 1';
-                    //console.log('Query is: '.yellow, selectQuery);
-                    //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
-
-                    conn.selectAndInsertToMemcached(selectQuery, function(replay) {
-                        if(typeof replay === 'undefined' || replay === null) {
-                            console.log('Couldnt find a replay, getting next job: '.red);
-                            memcached.del('locked', function(err) {
-                                setTimeout(function() {
-                                    this.getNextJob();
-                                }.bind(this), 10);
-                            }.bind(this));
-                        } else {
-                            var existsInMemcached = false;
-                            memcached.get('replays', function(err, data) {
-                                if(err || typeof data === 'undefined' || data === null) {
-                                    console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
-                                    // Nothing in memcached, create it
-                                    memcached.add('replays', JSON.stringify([replay.replayId]), 300, function(err) {
-                                        if(err) {
-                                            console.log('error when creating replays object in memcached:'.red, err);
-                                            memcached.del('locked', function(err) {
-                                                setTimeout(function() {
-                                                    this.getNextJob();
-                                                }.bind(this), 10);
-                                            }.bind(this));
-                                        } else {
-                                            this.addReplayToMemcached(replay);
-                                        }
-                                    }.bind(this));
-                                } else {
-                                    var replays = JSON.parse(data);
-                                    replays.forEach(function(replayId) {
-                                        existsInMemcached = replayId == replay.replayId;
-                                        return existsInMemcached;
-                                    });
-                                    if(existsInMemcached) {
-                                        console.log('Already exists in memcached: ' + replay.replayId);
-                                        memcached.del('locked', function(err) {
-                                            setTimeout(function() {
-                                                this.getNextJob();
-                                            }.bind(this), 10);
-                                        }.bind(this));
-                                    } else {
-                                        // Update the memcached object of replays
-                                        replays.push(replay.replayId);
-                                        memcached.replace('replays', JSON.stringify(replays), 300, function(err) {
-                                            if(err) {
-                                                console.log('couldnt replace in memcached: '.red, err);
-                                                setTimeout(function() {
-                                                    this.getNextJob();
-                                                }.bind(this), 10);
-                                            } else {
-                                                this.addReplayToMemcached(replay);
-                                            }
-                                        }.bind(this));
-                                    }
-                                }
-                            }.bind(this));
-                        }
-                    }.bind(this));
-                }.bind(this));
             }
-        }.bind(this));
-    } else {
-        //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
-        setTimeout(function() {
-            this.getNextJob();
-        }.bind(this), 10);
-    }
+        } else {
+            Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
+            setTimeout(function() {
+                this.getNextJob();
+            }.bind(this), 5);
+        }
+    }.bind(this));
 };
 
 /**
@@ -251,8 +272,8 @@ Queue.prototype.runTask = function(replay) {
 
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
-        if(!removing) {
-            removing = true;
+        if(!this.removing && !this.terminating) {
+            this.removing = true;
             var index = -1;
             this.workers.some(function(workerId, i) {
                 if(workerId === replay.replayId) {
@@ -261,7 +282,7 @@ Queue.prototype.workerDone = function(replay) {
                 }
                 return false;
             });
-            if(index > -1) {
+            if(index > -1 && !this.terminating) {
                 this.workers.splice(index, 1);
                 Logger.writeToConsole('[QUEUE] Worker '.cyan + (index+1) + ' was successfully removed from the queue, there are '.cyan + this.workers.length + '/'.cyan + this.maxWorkers + ' workers running'.cyan);
             }
@@ -329,7 +350,7 @@ Queue.prototype.updateMemcachedReplays = function(replay, callback) {
 
 Queue.prototype.failed = function(replay) {
     this.workerDone(replay).then(function() {
-        removing = false;
+        this.removing = false;
 
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + 120000);
@@ -371,7 +392,7 @@ Queue.prototype.failed = function(replay) {
 
 Queue.prototype.schedule = function(replay, ms) {
     this.workerDone(replay).then(function() {
-        removing = false;
+        this.removing = false;
 
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + ms);
@@ -408,7 +429,7 @@ Queue.prototype.schedule = function(replay, ms) {
 
 Queue.prototype.removeItemFromQueue = function(replay) {
     this.workerDone(replay).then(function() {
-        removing = false;
+        this.removing = false;
 
         var conn = new Connection();
         this.uploadFile(replay, function(err) {
@@ -449,7 +470,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
 
 Queue.prototype.removeDeadReplay = function(replay) {
     this.workerDone(replay).then(function() {
-        removing = false;
+        this.removing = false;
 
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
@@ -482,7 +503,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
 
 Queue.prototype.removeBotGame = function(replay) {
     this.workerDone(replay).then(function() {
-        removing = false;
+        this.removing = false;
 
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
@@ -576,20 +597,52 @@ Queue.prototype.deleteFile = function(replay) {
  * We also set its completed status back to false and its checkpoint time to 0 to prevent half processed
  * replays from being uploaded.
  *
- * @param {object} processId - The process id to be disposed of, this consists of the process PID and a
- * random 8 digit alphanumeric string so we don't get collisions across boxes.
  * @param {function} callback - Callback to determine when the query has ran, allowing the memcached lock to
  * be released allowing other workers to start transacting with MySQL again.
  */
 
-Queue.disposeOfLockedReservedEvents = function(processId, callback) {
-    Logger.writeToConsole('disposing of locked events');
-    var conn = new Connection();
-    var query = 'UPDATE queue SET reserved_by=null, checkpointTime=0, completed=0 WHERE reserved_by="' + processId + '"';
-    conn.query(query, function() {
-        Logger.writeToConsole('disposed');
-        callback();
-    });
+Queue.disposeOfLockedReservedEvents = function(callback) {
+    memcached.get('replays', function(err, data) {
+         if(err || typeof data === 'undefined' || data === null) {
+             callback();
+         } else {
+             if(data.length > 0) {
+                if(this.workers.length === 0) {
+                    Logger.writeToConsole('There were no jobs to dispose of for process: '.green + this.processId);
+                    callback();
+                } else {
+                    var replays = JSON.parse(data);
+                    replays.forEach(function(mcReplayId, index) {
+                        this.workers.some(function(replayId) {
+                            if(replayId === mcReplayId) {
+                                replays[index] = null;
+                                return true;
+                            }
+                            return false;
+                        });
+                    }.bind(this));
+
+                    replays = replays.filter(function(val) {
+                        var x = Boolean(val);
+                        return x == true;
+                    });
+
+                    memcached.replace('replays', JSON.parse(replays), function(err) {
+                        if(err) {
+                            Logger.writeToConsole('Unable to update the replays object'.red, err);
+                            callback();
+                        } else {
+                            Logger.writeToConsole('Successfully updated replays, it is now: ' + JSON.parse(replays));
+                            callback();
+                        }
+                    });
+                }
+             } else {
+                 Logger.writeToConsole('There were no jobs to dispose of for process: '.green + this.processId);
+                 callback();
+             }
+         }
+    }.bind(this));
 };
 
 module.exports = Queue;
