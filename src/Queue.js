@@ -67,7 +67,6 @@ Queue.prototype.getNextJob = function() {
                 memcached.add('locked', true, 10, function(err) {
                     if(err) {
                         //console.log('[MEMCACHED ERR] '.red, err);
-                        Logger.writeToConsole('Memcached already has a lock'.yellow);
                         setTimeout(function() {
                             this.getNextJob();
                         }.bind(this), 10);
@@ -88,7 +87,7 @@ Queue.prototype.getNextJob = function() {
                                         this.getNextJob();
                                     }.bind(this), 250);
                                 } else {
-                                    //Logger.writeToConsole('deleted cache lock'.green);
+                                    Logger.writeToConsole('deleted cache lock'.green);
                                     if(typeof replay !== 'undefined' && replay !== null) {
                                         this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                                     } else {
