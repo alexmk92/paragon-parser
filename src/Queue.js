@@ -9,7 +9,7 @@ var Memcached = require('memcached');
 var memcached = new Memcached(process.env.MEMCACHED_HOST + ':' + process.env.MEMCACHED_PORT);
 
 // Local lock to determine if we are removing from workers array
-//var removing = false;
+var removing = false;
 
 /**
  * @Queue :
