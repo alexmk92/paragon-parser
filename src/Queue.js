@@ -82,6 +82,10 @@ Queue.prototype.getNextJob = function() {
                         conn.selectAndInsertToMemcached(selectQuery, function(replay) {
                             memcached.del('locked', function(err) {
                                 if(err) {
+                                    setTimeout(function() {
+                                        this.getNextJob();
+                                    }.bind(this), 10);
+                                } else {
                                     if(typeof replay === 'undefined' || replay === null) {
                                         setTimeout(function() {
                                             this.getNextJob();
@@ -97,10 +101,6 @@ Queue.prototype.getNextJob = function() {
                                             }
                                         }.bind(this));
                                     }
-                                } else {
-                                    setTimeout(function() {
-                                        this.getNextJob();
-                                    }.bind(this), 10);
                                 }
                             }.bind(this));
                         }.bind(this));
