@@ -83,7 +83,7 @@ function cleanup() {
                 process.exit(err ? 1 : 0);
             });
         }
-    });
+    }.bind(this));
 }
 
 // If a process dies, dispose of its reserved events
