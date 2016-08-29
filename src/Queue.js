@@ -240,7 +240,9 @@ Queue.prototype.failed = function(replay) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + 120000);
         replay.replayJSON = null;
-        var query = 'UPDATE queue SET reserved_by=null, completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
+        var completed = replay.attempts > 10 ? 1 : 0;
+        console.log('attempts were: ' + replay.attempts + ' completed is: ' + completed);
+        var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
             memcached.del(replay.replayId, function() {
                 if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
