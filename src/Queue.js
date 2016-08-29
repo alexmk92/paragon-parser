@@ -80,6 +80,7 @@ Queue.prototype.getNextJob = function() {
                         console.log('replays property in memcached was empty, got error message: '.red, err);
                         whereClause = "";
                     } else {
+                        console.log('got data: ', data);
                         var replayObj = JSON.parse(data);
                         console.log('replay object is: ', replayObj);
                         var replays = "";
