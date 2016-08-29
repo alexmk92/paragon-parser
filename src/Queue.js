@@ -61,89 +61,88 @@ Queue.prototype.initializeWorkers = function() {
 
 Queue.prototype.getNextJob = function() {
     // Check memcache and make sure we aren't running the job to clear dead replays
-    memcached.get('clearDeadReservedReplays', function(err, data) {
-        if(err || typeof data === 'undefined' || data === null) {
-            if(this.workers.length < this.maxWorkers) {
-                memcached.add('locked', true, 2, function(err) {
-                    if(err) {
-                        //console.log('[MEMCACHED ERR] '.red, err);
-                        setTimeout(function() {
-                            this.getNextJob();
-                        }.bind(this), 10);
-                    } else {
-                        var conn = new Connection();
-                        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
+    if(this.workers.length < this.maxWorkers) {
+        memcached.add('locked', true, 2, function(err) {
+            if(err) {
+                //console.log('[MEMCACHED ERR] '.red, err);
+                setTimeout(function() {
+                    this.getNextJob();
+                }.bind(this), 10);
+            } else {
+                var conn = new Connection();
+                //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
 
-                        // Set the priority on the queue back to 0 once we start working it
-                        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                        var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() AND attempts < 10 LIMIT 1';
-                        //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
-                        
-                        conn.selectAndInsertToMemcached(selectQuery, function(replay) {
-                            if(typeof replay === 'undefined' || replay === null) {
+                // Set the priority on the queue back to 0 once we start working it
+                //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+                var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() AND attempts < 10 LIMIT 1';
+                //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
+
+                conn.selectAndInsertToMemcached(selectQuery, function(replay) {
+                    if(typeof replay === 'undefined' || replay === null) {
+                        memcached.del('locked', function(err) {
+                            setTimeout(function() {
+                                this.getNextJob();
+                            }.bind(this), 10);
+                        }.bind(this));
+                    } else {
+                        memcached.add(replay.replayId, true, 300, function(err) {
+                            if(err) {
                                 memcached.del('locked', function(err) {
                                     setTimeout(function() {
                                         this.getNextJob();
                                     }.bind(this), 10);
-                                }.bind(this));
+                                });
                             } else {
-                                memcached.add(replay.replayId, true, 300, function(err) {
-                                    memcached.del('locked', function(err) {
+                                memcached.del('locked', function(err) {
+                                    if(err) {
+                                        setTimeout(function() {
+                                            this.getNextJob();
+                                        }.bind(this), 10);
+                                    } else {
                                         if(err) {
                                             setTimeout(function() {
                                                 this.getNextJob();
                                             }.bind(this), 10);
                                         } else {
-                                            if(err) {
-                                                setTimeout(function() {
-                                                    this.getNextJob();
-                                                }.bind(this), 10);
-                                            } else {
-                                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                                            }
+                                            this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                                         }
-                                    }.bind(this));
+                                    }
                                 }.bind(this));
                             }
                         }.bind(this));
-                        
-                        /*
-                        conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-                            memcached.del('locked', function(err) {
-                                if(err) {
-                                    Logger.writeToConsole(err.red);
-                                    setTimeout(function() {
-                                        this.getNextJob();
-                                    }.bind(this), 250);
-                                } else {
-                                    Logger.writeToConsole('deleted cache lock'.green);
-                                    if(typeof replay !== 'undefined' && replay !== null) {
-                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                                    } else {
-                                        // we dont want to spam requests to get jobs if the queue is empty
-                                        setTimeout(function() {
-                                            this.getNextJob();
-                                        }.bind(this), 10);
-                                    }
-                                }
-                            }.bind(this));
-                        }.bind(this));
-                        */
                     }
                 }.bind(this));
-            } else {
-                //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
-                setTimeout(function() {
-                    this.getNextJob();
-                }.bind(this), 10);
+
+                /*
+                conn.selectUpdate(selectQuery, updateQuery, function(replay) {
+                    memcached.del('locked', function(err) {
+                        if(err) {
+                            Logger.writeToConsole(err.red);
+                            setTimeout(function() {
+                                this.getNextJob();
+                            }.bind(this), 250);
+                        } else {
+                            Logger.writeToConsole('deleted cache lock'.green);
+                            if(typeof replay !== 'undefined' && replay !== null) {
+                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                            } else {
+                                // we dont want to spam requests to get jobs if the queue is empty
+                                setTimeout(function() {
+                                    this.getNextJob();
+                                }.bind(this), 10);
+                            }
+                        }
+                    }.bind(this));
+                }.bind(this));
+                */
             }
-        } else {
-            //Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
-            setTimeout(function() {
-                this.getNextJob();
-            }.bind(this), 10);
-        }
-    }.bind(this));
+        }.bind(this));
+    } else {
+        //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
+        setTimeout(function() {
+            this.getNextJob();
+        }.bind(this), 10);
+    }
 };
 
 /**

@@ -68,6 +68,7 @@ MongoClient.connect(url, function(err, db) {
  */
 
 function cleanup() {
+    /*
     memcached.add('clearDeadReservedReplays', true, 15, function(err) {
         if(err) {
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
@@ -90,6 +91,7 @@ function cleanup() {
             });
         }
     });
+    */
 }
 
 // If a process dies, dispose of its reserved events
