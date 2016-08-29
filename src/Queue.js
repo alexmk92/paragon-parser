@@ -79,6 +79,7 @@ Queue.prototype.getNextJob = function() {
 
                 conn.selectAndInsertToMemcached(selectQuery, function(replay) {
                     if(typeof replay === 'undefined' || replay === null) {
+                        console.log('Couldnt find a replay, getting next job: '.red);
                         memcached.del('locked', function(err) {
                             setTimeout(function() {
                                 this.getNextJob();
@@ -87,6 +88,7 @@ Queue.prototype.getNextJob = function() {
                     } else {
                         memcached.add(replay.replayId, true, 300, function(err) {
                             if(err) {
+                                console.log('Replay: ' + replay.replayId + ' was already in memcached, getting next job'.red);
                                 memcached.del('locked', function(err) {
                                     setTimeout(function() {
                                         this.getNextJob();
@@ -95,17 +97,13 @@ Queue.prototype.getNextJob = function() {
                             } else {
                                 memcached.del('locked', function(err) {
                                     if(err) {
+                                        console.log('Replay: ' + replay.replayId + ' failed to delete lock, getting next job'.red);
                                         setTimeout(function() {
                                             this.getNextJob();
                                         }.bind(this), 10);
                                     } else {
-                                        if(err) {
-                                            setTimeout(function() {
-                                                this.getNextJob();
-                                            }.bind(this), 10);
-                                        } else {
-                                            this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                                        }
+                                        console.log('Replay: ' + replay.replayId + ' SUCCEED'.green);
+                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                                     }
                                 }.bind(this));
                             }
