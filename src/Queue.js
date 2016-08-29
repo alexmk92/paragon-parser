@@ -95,7 +95,7 @@ Queue.prototype.getNextJob = function() {
                                 whereClause = "";
                             } else {
                                 var replayObj = JSON.parse(data);
-                                Logger.writeToConsole('Replay cache size is: '.cyan, data.length);
+                                Logger.writeToConsole('Replay cache size is: '.cyan, replayObj.length);
                                 //console.log('replay object is: ', replayObj);
                                 var replays = "";
                                 if(replayObj.length > 0) {
