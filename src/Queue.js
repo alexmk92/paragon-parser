@@ -77,9 +77,11 @@ Queue.prototype.getNextJob = function() {
                 var whereClause = "";
                 memcached.get('replays', function(err, data) {
                     if(err) {
+                        console.log('Error getting replays: '.red, err);
                         whereClause = "";
                     } else {
                         var replayObj = JSON.parse(data);
+                        console.log('replay object is: ', replayObj);
                         var replays = "";
                         if(replayObj.length > 0) {
                             replayObj.forEach(function(replayId) {
