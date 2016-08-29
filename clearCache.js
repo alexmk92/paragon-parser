@@ -10,7 +10,7 @@ memcached.get('replays', function(err, data) {
         Logger.writeToConsole('Could not get cache'.red);
     } else {
         var replays = JSON.parse(data);
-        Logger.writeToConsole('Cache size is: '.green + data.length);
+        Logger.writeToConsole('Cache size is: '.green + replays.length);
     }
 });
 
