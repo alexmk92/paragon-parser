@@ -82,7 +82,7 @@ Queue.prototype.getNextJob = function() {
                     } else {
                         console.log('got data: ', data);
                         var replayObj = JSON.parse(data);
-                        console.log('replay object is: ', replayObj);
+                        //console.log('replay object is: ', replayObj);
                         var replays = "";
                         if(replayObj.length > 0) {
                             replayObj.forEach(function(replayId) {
