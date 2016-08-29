@@ -76,11 +76,10 @@ Queue.prototype.getNextJob = function() {
                 // Build a query string of all existing replays
                 var whereClause = "";
                 memcached.get('replays', function(err, data) {
-                    if(err) {
-                        console.log('Error getting replays: '.red, err);
+                    if(err || typeof data === 'undefined' || data === null) {
+                        console.log('replays property in memcached was empty, got error message: '.red, err);
                         whereClause = "";
                     } else {
-                        console.log('data is: ', data);
                         var replayObj = JSON.parse(data);
                         console.log('replay object is: ', replayObj);
                         var replays = "";
