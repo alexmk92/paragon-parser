@@ -60,55 +60,53 @@ Queue.prototype.initializeWorkers = function() {
  */
 
 Queue.prototype.getNextJob = function() {
-    if(this.workers.length < this.maxWorkers) {
-        memcached.add('locked', true, 2, function(err) {
-            if(err) {
-                //console.log('[MEMCACHED ERR] '.red, err);
-                setTimeout(function() {
-                    this.getNextJob();
-                }.bind(this), 150);
-            } else {
-                var conn = new Connection();
-                //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
-
-                // Set the priority on the queue back to 0 once we start working it
-                //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-                var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
-
-                conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-                    memcached.del('locked', function(err) {
-                        if(err) {
-                            Logger.writeToConsole(err.red);
-                            setTimeout(function() {
-                                this.getNextJob();
-                            }.bind(this), 150);
-                        } else {
-                            //Logger.writeToConsole('deleted cache lock'.green);
-                            if(typeof replay !== 'undefined' && replay !== null) {
-                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                            } else {
-                                // we dont want to spam requests to get jobs if the queue is empty
-                                setTimeout(function() {
-                                    this.getNextJob();
-                                }.bind(this), 150);
-                            }
-                        }
-                    }.bind(this));
-                }.bind(this));
-            }
-        }.bind(this));
-    } else {
-        //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
-        setTimeout(function() {
-            this.getNextJob();
-        }.bind(this), 150);
-    }
-    /*
     // Check memcache and make sure we aren't running the job to clear dead replays
     memcached.get('clearDeadReservedReplays', function(err, data) {
         if(err || typeof data === 'undefined' || data === null) {
+            if(this.workers.length < this.maxWorkers) {
+                memcached.add('locked', true, 2, function(err) {
+                    if(err) {
+                        //console.log('[MEMCACHED ERR] '.red, err);
+                        setTimeout(function() {
+                            this.getNextJob();
+                        }.bind(this), 150);
+                    } else {
+                        var conn = new Connection();
+                        //Logger.writeToConsole('[QUEUE] Fetching next item to run on queue...'.cyan);
 
+                        // Set the priority on the queue back to 0 once we start working it
+                        //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+                        var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
+                        var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
+
+                        conn.selectUpdate(selectQuery, updateQuery, function(replay) {
+                            memcached.del('locked', function(err) {
+                                if(err) {
+                                    Logger.writeToConsole(err.red);
+                                    setTimeout(function() {
+                                        this.getNextJob();
+                                    }.bind(this), 150);
+                                } else {
+                                    //Logger.writeToConsole('deleted cache lock'.green);
+                                    if(typeof replay !== 'undefined' && replay !== null) {
+                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                    } else {
+                                        // we dont want to spam requests to get jobs if the queue is empty
+                                        setTimeout(function() {
+                                            this.getNextJob();
+                                        }.bind(this), 150);
+                                    }
+                                }
+                            }.bind(this));
+                        }.bind(this));
+                    }
+                }.bind(this));
+            } else {
+                //Logger.writeToConsole('[QUEUE] Not enough jobs running'.yellow);
+                setTimeout(function() {
+                    this.getNextJob();
+                }.bind(this), 150);
+            }
         } else {
             //Logger.writeToConsole('[QUEUE] Removing locked replays in memcache');
             setTimeout(function() {
@@ -116,7 +114,6 @@ Queue.prototype.getNextJob = function() {
             }.bind(this), 150);
         }
     }.bind(this));
-    */
 };
 
 /**
@@ -207,7 +204,6 @@ Queue.prototype.workerDone = function(replay) {
  */
 
 Queue.prototype.failed = function(replay) {
-    Logger.writeToConsole('Called from failed'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -250,7 +246,6 @@ Queue.prototype.failed = function(replay) {
  */
 
 Queue.prototype.schedule = function(replay, ms) {
-    Logger.writeToConsole('Called from schedule'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -289,7 +284,6 @@ Queue.prototype.schedule = function(replay, ms) {
  */
 
 Queue.prototype.removeItemFromQueue = function(replay) {
-    Logger.writeToConsole('Called from remove item from queue'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -331,7 +325,6 @@ Queue.prototype.removeItemFromQueue = function(replay) {
  */
 
 Queue.prototype.removeDeadReplay = function(replay) {
-    Logger.writeToConsole('Called from remove dead replay'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
@@ -366,7 +359,6 @@ Queue.prototype.removeDeadReplay = function(replay) {
  */
 
 Queue.prototype.removeBotGame = function(replay) {
-    Logger.writeToConsole('Called from remove bot game'.cyan);
     this.workerDone(replay).then(function() {
         removing = false;
 
