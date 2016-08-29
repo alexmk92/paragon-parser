@@ -114,6 +114,36 @@ Connection.prototype.selectUpdate = function(selectQuery, updateQuery, callback)
 };
 
 /**
+ * @queryAndInsertToMemcached :
+ * ----------------------------
+ * Runs a select query and checks if the replay already exists in memcached, if it doesn't then we
+ * call back with the replay ID, otherwise we try again
+ */
+
+Connection.prototype.selectAndInsertToMemcached = function(queryString, callback) {
+    this.connection.connect(function(err) {
+        if(err) {
+            callback(null);
+        } else {
+            this.connection.query(queryString, function(err, rows) {
+                if(err) {
+                    Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful".red);
+                    callback(null);
+                }
+                if(typeof rows !== "undefined" && rows && rows.length > 0) {
+                    var replay = rows[0];
+                    Logger.writeToConsole('Got replay: ', replay);
+                    callback(replay);
+                } else {
+                    callback(null);
+                }
+                this.end();
+            }.bind(this));
+        }
+    }.bind(this));
+};
+
+/**
  * @query :
  * --------
  * Queries the database with a given query string and calls back to the caller when the
@@ -127,10 +157,12 @@ Connection.prototype.query = function(queryString, callback) {
     this.connection.connect(function (err) {
         if(err) {
             Logger.writeToConsole("[MYSQL] Error: Connection NOT made".red);
+            callback(null);
         } else {
             this.connection.query(queryString, function(err, rows) {
                 if(err) {
                     Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful".red);
+                    callback(null);
                 }
                 if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {
                     Logger.writeToConsole('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);

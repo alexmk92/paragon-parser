@@ -76,9 +76,22 @@ Queue.prototype.getNextJob = function() {
 
                         // Set the priority on the queue back to 0 once we start working it
                         //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                        var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() LIMIT 1 FOR UPDATE';
-                        var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
-
+                        var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() LIMIT 1';
+                        //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
+                        
+                        conn.selectAndInsertToMemcached(selectQuery, function(replay) {
+                            if(typeof replay === 'undefined' || replay === null) {
+                                setTimeout(function() {
+                                    this.getNextJob();
+                                }.bind(this), 10);
+                            } else {
+                                var replayObj = { replayId : replay.replayId, attempts: replay.attempts, checkpointTime: replay.checkpointTime };
+                                Logger.writeToConsole('Replay object is: ', replayObj);
+                                //memcached.add(replay.replayId, JSON.stringify(replay), )
+                            }
+                        });
+                        
+                        /*
                         conn.selectUpdate(selectQuery, updateQuery, function(replay) {
                             memcached.del('locked', function(err) {
                                 if(err) {
@@ -99,6 +112,7 @@ Queue.prototype.getNextJob = function() {
                                 }
                             }.bind(this));
                         }.bind(this));
+                        */
                     }
                 }.bind(this));
             } else {
@@ -213,7 +227,7 @@ Queue.prototype.failed = function(replay) {
         var query = 'UPDATE queue SET reserved_by=null, completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
 
         conn.query(query, function(row) {
-            if(typeof row !== 'undefined' && row.affectedRows !== 0) {
+            if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
                 this.deleteFile(replay);
                 this.getNextJob();
