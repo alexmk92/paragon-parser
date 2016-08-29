@@ -95,8 +95,8 @@ Queue.prototype.getNextJob = function() {
                         }
                     }
                     // This happens, regardless
-                    //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
-                    var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' LIMIT 1';
+                    var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ' + whereClause + ' ORDER BY priority DESC LIMIT 1 FOR UPDATE';
+                    //var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' LIMIT 1';
                     //console.log('Query is: '.yellow, selectQuery);
                     //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
 
