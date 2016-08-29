@@ -64,7 +64,7 @@ Queue.prototype.getNextJob = function() {
     memcached.get('clearDeadReservedReplays', function(err, data) {
         if(err || typeof data === 'undefined' || data === null) {
             if(this.workers.length < this.maxWorkers) {
-                memcached.add('locked', true, 10, function(err) {
+                memcached.add('locked', true, 2, function(err) {
                     if(err) {
                         //console.log('[MEMCACHED ERR] '.red, err);
                         setTimeout(function() {
@@ -80,21 +80,29 @@ Queue.prototype.getNextJob = function() {
                         //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
                         
                         conn.selectAndInsertToMemcached(selectQuery, function(replay) {
-                            if(typeof replay === 'undefined' || replay === null) {
-                                setTimeout(function() {
-                                    this.getNextJob();
-                                }.bind(this), 10);
-                            } else {
-                                memcached.add(replay.replayId, true, 300, function(err) {
-                                    if(err) {
+                            memcached.del('locked', function(err) {
+                                if(err) {
+                                    if(typeof replay === 'undefined' || replay === null) {
                                         setTimeout(function() {
                                             this.getNextJob();
                                         }.bind(this), 10);
                                     } else {
-                                        this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                        memcached.add(replay.replayId, true, 300, function(err) {
+                                            if(err) {
+                                                setTimeout(function() {
+                                                    this.getNextJob();
+                                                }.bind(this), 10);
+                                            } else {
+                                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                                            }
+                                        }.bind(this));
                                     }
-                                }.bind(this));
-                            }
+                                } else {
+                                    setTimeout(function() {
+                                        this.getNextJob();
+                                    }.bind(this), 10);
+                                }
+                            }.bind(this));
                         }.bind(this));
                         
                         /*
