@@ -197,26 +197,20 @@ Queue.prototype.runTask = function(replay) {
 Queue.prototype.workerDone = function(replay) {
     return new Promise(function(resolve, reject) {
         if(!removing) {
-            memcached.del(replay.replayId, function(err) {
-                if(err) {
-                    reject();
-                } else {
-                    removing = true;
-                    var index = -1;
-                    this.workers.some(function(workerId, i) {
-                        if(workerId === replay.replayId) {
-                            index = i;
-                            return true;
-                        }
-                        return false;
-                    });
-                    if(index > -1) {
-                        this.workers.splice(index, 1);
-                        Logger.writeToConsole('[QUEUE] Worker '.cyan + (index+1) + ' was successfully removed from the queue, there are '.cyan + this.workers.length + '/'.cyan + this.maxWorkers + ' workers running'.cyan);
-                    }
-                    resolve();
+            removing = true;
+            var index = -1;
+            this.workers.some(function(workerId, i) {
+                if(workerId === replay.replayId) {
+                    index = i;
+                    return true;
                 }
-            }.bind(this));
+                return false;
+            });
+            if(index > -1) {
+                this.workers.splice(index, 1);
+                Logger.writeToConsole('[QUEUE] Worker '.cyan + (index+1) + ' was successfully removed from the queue, there are '.cyan + this.workers.length + '/'.cyan + this.maxWorkers + ' workers running'.cyan);
+            }
+            resolve();
         } else {
             // Wait for the lock to release so we can remove a resource
             reject();
@@ -247,22 +241,25 @@ Queue.prototype.failed = function(replay) {
         var scheduledDate = new Date(Date.now() + 120000);
         replay.replayJSON = null;
         var query = 'UPDATE queue SET reserved_by=null, completed = false, checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
-
         conn.query(query, function(row) {
-            if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
-                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
-                this.deleteFile(replay);
-                this.getNextJob();
-            } else {
-                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
-                this.getNextJob();
-            }
+            memcached.del(replay.replayId, function() {
+                if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
+                    Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
+                    this.deleteFile(replay);
+                    this.getNextJob();
+                } else {
+                    Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
+                    this.getNextJob();
+                }
+            });
         }.bind(this));
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
             this.workerDone(replay).then(function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this), 10)
     }.bind(this));
@@ -291,14 +288,18 @@ Queue.prototype.schedule = function(replay, ms) {
         var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(replay, function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this));
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
             this.workerDone(replay).then(function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this), 10)
     }.bind(this));
@@ -328,9 +329,12 @@ Queue.prototype.removeItemFromQueue = function(replay) {
             if(err === null) {
                 Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
                 var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
-                conn.query(query, function() {});
+                conn.query(query, function() {
+                    memcached.del(replay.replayId, function() {});
+                });
                 this.getNextJob();
             } else {
+                memcached.del(replay.replayId, function() {});
                 Logger.writeToConsole('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
                 replay.replayJSON = Replay.getEmptyReplayObject();
                 this.failed(replay);
@@ -340,7 +344,9 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         removing = false;
         setTimeout(function() {
             this.workerDone(replay).then(function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this), 10)
     }.bind(this));
@@ -367,15 +373,19 @@ Queue.prototype.removeDeadReplay = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
-            Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
-            this.deleteFile(replay);
-            this.getNextJob();
+            memcached.del(replay.replayId, function() {
+                Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
+                this.deleteFile(replay);
+                this.getNextJob();
+            }.bind(this));
         }.bind(this));
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
             this.workerDone(replay).then(function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this), 10)
     }.bind(this));
@@ -401,14 +411,18 @@ Queue.prototype.removeBotGame = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
-            Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
-            this.getNextJob();
+            memcached.del(replay.replayId, function() {
+                Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
+                this.getNextJob();
+            }.bind(this));
         }.bind(this));
     }.bind(this), function() {
         removing = false;
         setTimeout(function() {
             this.workerDone(replay).then(function() {
-                this.getNextJob();
+                memcached.del(replay.replayId, function() {
+                    this.getNextJob();
+                }.bind(this));
             }.bind(this));
         }.bind(this), 10)
     }.bind(this));
