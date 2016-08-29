@@ -94,7 +94,7 @@ Queue.prototype.getNextJob = function() {
                                 Logger.writeToConsole('replays property in memcached was empty, got error message: '.red, err);
                                 whereClause = "";
                             } else {
-                                Logger.writeToConsole('Replay cache size is: ', data.length);
+                                Logger.writeToConsole('Replay cache size is: '.cyan, data.length);
                                 var replayObj = JSON.parse(data);
                                 //console.log('replay object is: ', replayObj);
                                 var replays = "";
