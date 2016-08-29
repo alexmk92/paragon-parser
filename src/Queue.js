@@ -97,7 +97,7 @@ Queue.prototype.getNextJob = function() {
                     // This happens, regardless
                     //var selectQuery = 'SELECT * FROM queue WHERE completed = false AND reserved = false AND scheduled <= NOW() ORDER BY priority DESC LIMIT 1 FOR UPDATE';
                     var selectQuery = 'SELECT * FROM queue WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' + whereClause + ' LIMIT 1';
-                    console.log('Query is: '.yellow, selectQuery);
+                    //console.log('Query is: '.yellow, selectQuery);
                     //var updateQuery = 'UPDATE queue SET reserved_at=NOW(), reserved_by="' + this.processId + '", priority=0';
 
                     conn.selectAndInsertToMemcached(selectQuery, function(replay) {
@@ -194,7 +194,6 @@ Queue.prototype.addReplayToMemcached = function(replay) {
                         this.getNextJob();
                     }.bind(this), 10);
                 } else {
-                    console.log('Replay: ' + replay.replayId + ' SUCCEED'.green);
                     this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
                 }
             }.bind(this));
@@ -217,7 +216,6 @@ Queue.prototype.addReplayToMemcached = function(replay) {
  */
 
 Queue.prototype.runTask = function(replay) {
-    console.log('We in run task for replay: ' + replay.replayId);
     var found = false;
     this.workers.some(function(workerId) {
         found = workerId === replay.replayId;
