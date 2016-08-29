@@ -11,13 +11,14 @@ memcached.get('replays', function(err, data) {
     } else {
         var replays = JSON.parse(data);
         Logger.writeToConsole('Cache size is: '.green + replays.length);
-    }
-});
 
-memcached.del('replays', function(err) {
-    if(err) {
-        Logger.writeToConsole('Failed to clear cache, or there was no replay key in memcached.'.red);
-    } else {
-        Logger.writeToConsole('Successfully cleared replays from memcached.'.green);
+        memcached.del('replays', function(err) {
+            if(err) {
+                Logger.writeToConsole('Failed to clear cache, or there was no replay key in memcached.'.red);
+            } else {
+                Logger.writeToConsole('Successfully cleared replays from memcached.'.green);
+            }
+        });
+
     }
 });
