@@ -112,17 +112,24 @@ Queue.prototype.getNextJob = function() {
                             memcached.get('replays', function(err, data) {
                                 if(err || typeof data === 'undefined' || data === null) {
                                     console.log('error getting replays from memcached, was either null or undefined. Got error: '.red, err);
-                                    memcached.del('locked', function(err) {
-                                        setTimeout(function() {
-                                            this.getNextJob();
-                                        }.bind(this), 10);
+                                    // Nothing in memcached, create it
+                                    memcached.add('replays', [replay.replayId], 300, function(err) {
+                                        if(err) {
+                                            console.log('error when creating replays object in memcached:'.red, err);
+                                            memcached.del('locked', function(err) {
+                                                setTimeout(function() {
+                                                    this.getNextJob();
+                                                }.bind(this), 10);
+                                            }.bind(this));
+                                        } else {
+                                            this.addReplayToMemcached(replay);
+                                        }
                                     }.bind(this));
-                                }  else {
+                                } else {
                                     data.forEach(function(replayId) {
                                         existsInMemcached = replayId == replay.replayId;
                                         return existsInMemcached;
                                     });
-
                                     if(existsInMemcached) {
                                         console.log('Already exists in memcached: ' + replay.replayId);
                                         memcached.del('locked', function(err) {
@@ -140,28 +147,7 @@ Queue.prototype.getNextJob = function() {
                                                     this.getNextJob();
                                                 }.bind(this), 10);
                                             } else {
-                                                memcached.add(replay.replayId, true, 300, function(err) {
-                                                    if(err) {
-                                                        console.log('Replay: ' + replay.replayId + ' was already in memcached, getting next job'.red, err);
-                                                        memcached.del('locked', function(err) {
-                                                            setTimeout(function() {
-                                                                this.getNextJob();
-                                                            }.bind(this), 10);
-                                                        }.bind(this));
-                                                    } else {
-                                                        memcached.del('locked', function(err) {
-                                                            if(err) {
-                                                                console.log('Replay: ' + replay.replayId + ' failed to delete lock, getting next job'.red, err);
-                                                                setTimeout(function() {
-                                                                    this.getNextJob();
-                                                                }.bind(this), 10);
-                                                            } else {
-                                                                console.log('Replay: ' + replay.replayId + ' SUCCEED'.green);
-                                                                this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                                                            }
-                                                        }.bind(this));
-                                                    }
-                                                }.bind(this));
+                                                this.addReplayToMemcached(replay);
                                             }
                                         }.bind(this));
                                     }
@@ -169,29 +155,6 @@ Queue.prototype.getNextJob = function() {
                             }.bind(this));
                         }
                     }.bind(this));
-
-                    /*
-                     conn.selectUpdate(selectQuery, updateQuery, function(replay) {
-                     memcached.del('locked', function(err) {
-                     if(err) {
-                     Logger.writeToConsole(err.red);
-                     setTimeout(function() {
-                     this.getNextJob();
-                     }.bind(this), 250);
-                     } else {
-                     Logger.writeToConsole('deleted cache lock'.green);
-                     if(typeof replay !== 'undefined' && replay !== null) {
-                     this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
-                     } else {
-                     // we dont want to spam requests to get jobs if the queue is empty
-                     setTimeout(function() {
-                     this.getNextJob();
-                     }.bind(this), 10);
-                     }
-                     }
-                     }.bind(this));
-                     }.bind(this));
-                     */
                 }.bind(this));
             }
         }.bind(this));
@@ -201,6 +164,40 @@ Queue.prototype.getNextJob = function() {
             this.getNextJob();
         }.bind(this), 10);
     }
+};
+
+/**
+ * @addReplayToMemcached :
+ * -----------------------
+ * Adds the given replayId to memcached and then starts work on this task.  We also dispose
+ * of the memcached lock here so another worker can begin to schedule work
+ *
+ * @param {object} replay - The replay object
+ */
+
+Queue.prototype.addReplayToMemcached = function(replay) {
+    memcached.add(replay.replayId, true, 300, function(err) {
+        if(err) {
+            console.log('Replay: ' + replay.replayId + ' was already in memcached, getting next job'.red, err);
+            memcached.del('locked', function(err) {
+                setTimeout(function() {
+                    this.getNextJob();
+                }.bind(this), 10);
+            }.bind(this));
+        } else {
+            memcached.del('locked', function(err) {
+                if(err) {
+                    console.log('Replay: ' + replay.replayId + ' failed to delete lock, getting next job'.red, err);
+                    setTimeout(function() {
+                        this.getNextJob();
+                    }.bind(this), 10);
+                } else {
+                    console.log('Replay: ' + replay.replayId + ' SUCCEED'.green);
+                    this.runTask(new Replay(this.mongoconn, replay.replayId, replay.checkpointTime, replay.attempts, this));
+                }
+            }.bind(this));
+        }
+    }.bind(this));
 };
 
 /**
