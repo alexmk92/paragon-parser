@@ -1,6 +1,0 @@
-apps:
-  - script   : ./src/queueManager.js
-    name     : 'queueManager'
-    instances: 1
-    exec_mode: fork
-    watch: false
