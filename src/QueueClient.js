@@ -121,6 +121,7 @@ Queue.prototype.getReservedReplays = function(callback) {
     var selectQuery = 'SELECT * FROM queue WHERE reserved_by="' + this.processId + '"';
     conn.query(selectQuery, function(rows) {
         if(typeof rows !== 'undefined' && rows && rows.length > 0) {
+            console.log('pulled back ' + rows.length + ' rows');
             rows.forEach(function(replay) {
                 var found = false;
                 this.queue.some(function(replayObj) {
@@ -189,9 +190,13 @@ Queue.prototype.initializeWorkers = function() {
  */
 
 Queue.prototype.getNextJob = function() {
-    if(this.queue.length > 0 && this.workers.length < this.maxWorkers) {
+    if(this.workers.length < this.maxWorkers) {
         var job = this.queue.shift();
-        this.runTask(new Replay(this.mongoconn, job.replayId, job.checkpointTime, job.attempts, this));
+        if(job) {
+            this.runTask(new Replay(this.mongoconn, job.replayId, job.checkpointTime, job.attempts, this));
+        } else {
+            this.socket.write(JSON.stringify({ action: 'getReplays' }));
+        }
     } else {
         if(this.socket !== null) {
             if(!this.waiting) {
