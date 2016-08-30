@@ -164,7 +164,7 @@ Connection.prototype.query = function(queryString, callback) {
                     callback(null);
                 }
                 if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {
-                    Logger.writeToConsole('[MYSQL] Saved: '.green + rows.affectedRows + ' rows'.green);
+                    Logger.writeToConsole('[MYSQL] '.green + rows.affectedRows + ' rows affected.'.green);
                 }
                 callback(rows);
                 this.end();

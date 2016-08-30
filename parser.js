@@ -11,6 +11,7 @@
 require('dotenv').config();
 
 var Queue = require('./src/Queue');
+var QueueClient = require('./src/QueueClient');
 var Logger = require('./src/Logger');
 var Replay = require('./src/Replay');
 var async = require('async.js');
@@ -18,8 +19,8 @@ var colors = require('colors');
 var cluster = require('cluster');
 var MongoClient = require('mongodb').MongoClient;
 
-var Memcached = require('memcached');
-var memcached = new Memcached('paragongg-queue.t4objd.cfg.use1.cache.amazonaws.com:11211');
+//var Memcached = require('memcached');
+//var memcached = new Memcached('paragongg-queue.t4objd.cfg.use1.cache.amazonaws.com:11211');
 
 var url = '';
 if(process.env.MONGO_URI) {
@@ -51,7 +52,8 @@ MongoClient.connect(url, function(err, db) {
         Logger.writeToConsole('[MONGODB] Error connecting to MongoDB'.red, err);
     } else {
         Logger.writeToConsole('[PARSER] Process: '.cyan + processId + ' is building a queue with '.cyan + workers + ' workers'.cyan);
-        if(!queue) queue = new Queue(mongodb, workers, processId);
+        //if(!queue) queue = new Queue(mongodb, workers, processId);
+        if(!queue) queue = new QueueClient(mongodb, workers, processId);
     }
 });
 
@@ -69,6 +71,8 @@ MongoClient.connect(url, function(err, db) {
 
 function cleanup() {
     if(queue) queue.terminate();
+    process.exit(0);
+    /*
     memcached.add('shuttingDownProcess', true, 15, function(err) {
         if(err) {
             Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
@@ -100,6 +104,7 @@ function cleanup() {
             }
         }
     }.bind(this));
+    */
 }
 
 // If a process dies, dispose of its reserved events
