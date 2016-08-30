@@ -133,7 +133,7 @@ Queue.prototype.getReservedReplays = function(callback) {
         } else {
             // wait for the queue to catch up
             setTimeout(function() {
-                Logger.writeToConsole('There were no reserved jobs for: '.yellow + this.processId + ' waiting ' + (process.env.QUEUE_CLIENT_WAIT_DELAY_MS/1000) + ' before trying again'.yellow);
+                Logger.writeToConsole('There were no reserved jobs for: '.yellow + this.processId + ' waiting ' + (process.env.QUEUE_CLIENT_WAIT_DELAY_MS/1000) + ' seconds before trying again'.yellow);
                 if(this.socket !== null) {
                     this.socket.write(JSON.stringify({ action: 'getReplays' }));
                 } else {
