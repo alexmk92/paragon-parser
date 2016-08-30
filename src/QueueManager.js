@@ -126,7 +126,7 @@ cleanOnStart(function() {
             console.log('Disposing of all replays reserved by: '.yellow + socket.processId);
             var updateQuery = 'UPDATE queue SET priority=5, completed=false, checkpointTime=0, reserved_by=NULL WHERE reserved_by="' + socket.processId + '"';
             conn.query(updateQuery, function(rows) {
-                if(rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+                if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                     console.log('Released: '.green + rows.affectedRows + ' replays for process: '.green + socket.processId);
                 } else {
                     console.log('Process: '.green + socket.processId + ' did not have any replays reserved.'.green);
@@ -144,7 +144,7 @@ function cleanOnStart(callback) {
     var updateQuery = 'UPDATE queue SET priority=5, completed=false, checkpointTime=0, reserved_by=NULL WHERE reserved_by IS NOT NULL';
     var conn = new Connection();
     conn.query(updateQuery, function(rows) {
-        if(rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+        if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
             console.log('Disposed of: '.green + rows.affectedRows + ' replays, server shut started successfully!'.green);
         } else {
             console.log('The server had not reserved any replays, server shut started successfully!'.green);
