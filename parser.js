@@ -10,7 +10,6 @@
 
 require('dotenv').config();
 
-var Queue = require('./src/Queue');
 var QueueClient = require('./src/QueueClient');
 var Logger = require('./src/Logger');
 var Replay = require('./src/Replay');
@@ -72,39 +71,6 @@ MongoClient.connect(url, function(err, db) {
 function cleanup() {
     if(queue) queue.terminate();
     process.exit(0);
-    /*
-    memcached.add('shuttingDownProcess', true, 15, function(err) {
-        if(err) {
-            Logger.writeToConsole('[MEMCACHE] Another process is running clearDeadReservedReplays'.yellow);
-            setTimeout(function() {
-                cleanup();
-            }, 250);
-        } else {
-            if(queue) {
-                queue.disposeOfLockedReservedEvents(function() {
-                    memcached.del('shuttingDownProcess', function(err) {
-                        if(err) {
-                            Logger.writeToConsole('[MEMCACHE] Failed to delete shuttingDownProcess lock'.red);
-                        } else {
-                            Logger.writeToConsole('[MEMCACHE] Deleted shuttingDownProcess lock'.green);
-                        }
-                    });
-                    Logger.writeToConsole('[PARSER] Successfully shut down process: '.green + processId + ' and removed all of its workers.'.green);
-                    process.exit(err ? 1 : 0);
-                });
-            } else {
-                memcached.del('shuttingDownProcess', function(err) {
-                    if(err) {
-                        Logger.writeToConsole('[MEMCACHE] Failed to delete shuttingDownProcess lock'.red);
-                    } else {
-                        Logger.writeToConsole('[MEMCACHE] Deleted shuttingDownProcess lock'.green);
-                    }
-                    process.exit(err ? 1 : 0);
-                });
-            }
-        }
-    }.bind(this));
-    */
 }
 
 // If a process dies, dispose of its reserved events

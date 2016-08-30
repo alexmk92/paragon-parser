@@ -486,7 +486,7 @@ Queue.prototype.uploadFile = function(replay, callback) {
                 }.bind(this));
         } catch(e) {
             this.failed(replay);
-            Logger.writeToConsole('[MONGO ERROR] in Queue.js when uploading relay: '.red + replay.replayId + '.  Error: '.red, e);
+            Logger.writeToConsole('[MONGO ERROR] in OldQueue.js when uploading relay: '.red + replay.replayId + '.  Error: '.red, e);
             callback({ message: 'failed to upload' });
         }
     } else {
@@ -524,7 +524,7 @@ Queue.prototype.deleteFile = function(replay) {
         }
     } catch(e) {
         replay.deleting = false;
-        Logger.writeToConsole('[MONGO ERROR] in Queue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
+        Logger.writeToConsole('[MONGO ERROR] in OldQueue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
     }
 };
 

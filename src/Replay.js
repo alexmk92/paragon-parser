@@ -28,7 +28,7 @@ var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
  * @param {number} checkpointTime - The time we should start processing this replay from to save on network requests
  * this can be set from a previous worker so that we don't need to fully process all the chunks again
  * @param {number} attempts - The number of failed attempts, if this is too high we remove it from the queue
- * @queue {object} queue - Reference to the parent @Queue.js which manages this Replay object
+ * @queue {object} queue - Reference to the parent @OldQueue.js which manages this Replay object
  */
 
 var Replay = function(db, replayId, checkpointTime, attempts, queue) {
