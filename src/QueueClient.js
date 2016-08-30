@@ -86,9 +86,7 @@ Queue.prototype.bindSocketListeners = function() {
                 break;
             case 'replays':
                 if(data.code === 200) {
-                    this.getReservedReplays(function() {
-                        this.initializeWorkers();
-                    }.bind(this));
+                    this.getReservedReplays();
                 } else if(data.code === 409) {
                     Logger.writeToConsole(data.message.red);
                     setTimeout(function() {
@@ -110,13 +108,10 @@ Queue.prototype.bindSocketListeners = function() {
  * After QueueManager reserves a block of replays for us, we can query them from SQL
  * in this method and then add them to memory.  We will not get deadlocks as
  * the resources have already been updated in SQL and the read is not expensive.
- *
- * @param {function} callback - Calls back to the caller when we have got the array
- * of replays back from SQL.
  */
 
-Queue.prototype.getReservedReplays = function(callback) {
-    console.log('getting replays from sql for: '.cyan + this.processId);
+Queue.prototype.getReservedReplays = function() {
+    Logger.writeToConsole('getting replays from sql for: '.cyan + this.processId);
     var conn = new Connection();
     var selectQuery = 'SELECT * FROM queue WHERE reserved_by="' + this.processId + '"';
     conn.query(selectQuery, function(rows) {

@@ -2,6 +2,7 @@ require('dotenv').config();
 require('colors');
 
 var net = require('net');
+var Logger = require('./Logger');
 var Connection = require('./Connection');
 
 var clients = [];
@@ -53,7 +54,7 @@ cleanOnStart(function() {
                 case 'getReplays':
                     if(lockedBy === null) {
                         lockedBy = socket.processId;
-                        console.log('Client: '.green + socket.processId + ' requested the next '.green + process.env.REPLAY_FETCH_AMOUNT + ' replays'.green);
+                        Logger.writeToConsole('Client: '.green + socket.processId + ' requested the next '.green + process.env.REPLAY_FETCH_AMOUNT + ' replays'.green);
 
                         fetchAndReserveReplays(function(replays) {
                             socket.hasReservedReplays = replays !== null;
@@ -61,7 +62,7 @@ cleanOnStart(function() {
                             lockedBy = null;
                         });
                     } else {
-                        console.log('Client '.red + socket.processId + ' cannot reserve right now as '.red + lockedBy + ' is fetching replays'.red);
+                        Logger.writeToConsole('Client '.red + socket.processId + ' cannot reserve right now as '.red + lockedBy + ' is fetching replays'.red);
                         socket.write(JSON.stringify({ code: 409, action: 'replays', message: 'Process: ' + lockedBy + ' is already reserving replays, try again later', body: null }));
                     }
                     break;
@@ -76,7 +77,7 @@ cleanOnStart(function() {
         });
     }).listen(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_HOST);
 
-    console.log('['.green + process.pid + '] QueueManager server running on: '.green + process.env.QUEUE_MANAGER_HOST + ':' + process.env.QUEUE_MANAGER_PORT);
+    Logger.writeToConsole('['.green + process.pid + '] QueueManager server running on: '.green + process.env.QUEUE_MANAGER_HOST + ':' + process.env.QUEUE_MANAGER_PORT);
 
     // Disposes of the socket
     function dispose(socket) {
@@ -123,13 +124,13 @@ cleanOnStart(function() {
         if(socket.hasReservedReplays) {
             var conn = new Connection();
             // Set the highest priority as the only reason this replay stopped getting processed was due to the process crashing
-            console.log('Disposing of all replays reserved by: '.yellow + socket.processId);
+            Logger.writeToConsole('Disposing of all replays reserved by: '.yellow + socket.processId);
             var updateQuery = 'UPDATE queue SET priority=5, completed=false, checkpointTime=0, reserved_by=NULL WHERE reserved_by="' + socket.processId + '"';
             conn.query(updateQuery, function(rows) {
                 if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-                    console.log('Released: '.green + rows.affectedRows + ' replays for process: '.green + socket.processId);
+                    Logger.writeToConsole('Released: '.green + rows.affectedRows + ' replays for process: '.green + socket.processId);
                 } else {
-                    console.log('Process: '.green + socket.processId + ' did not have any replays reserved.'.green);
+                    Logger.writeToConsole('Process: '.green + socket.processId + ' did not have any replays reserved.'.green);
                 }
                 callback();
             });
@@ -145,9 +146,9 @@ function cleanOnStart(callback) {
     var conn = new Connection();
     conn.query(updateQuery, function(rows) {
         if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-            console.log('Disposed of: '.green + rows.affectedRows + ' replays, server shut started successfully!'.green);
+            Logger.writeToConsole('Disposed of: '.green + rows.affectedRows + ' replays, server started successfully!'.green);
         } else {
-            console.log('The server had not reserved any replays, server shut started successfully!'.green);
+            Logger.writeToConsole('The server had not reserved any replays, server started successfully!'.green);
         }
        callback();
     });
