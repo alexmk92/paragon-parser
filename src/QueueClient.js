@@ -29,6 +29,7 @@ var Queue = function(db, workers, processId) {
     this.queue = [];
     this.socket = null;
 
+    this.fetchingReplays = false; // Only one process can fetch replays
     this.initialized = false; // Tells us if we have already initted the queue
     this.terminating = false; // Local variable to determine if we are stopping this process
     this.removing = false; // Local lock to determine if we are removing from workers array
@@ -111,32 +112,38 @@ Queue.prototype.bindSocketListeners = function() {
  */
 
 Queue.prototype.getReservedReplays = function() {
-    Logger.writeToConsole('getting replays from sql for: '.cyan + this.processId);
-    var conn = new Connection();
-    var selectQuery = 'SELECT * FROM queue WHERE reserved_by="' + this.processId + '"';
-    conn.query(selectQuery, function(rows) {
-        if(typeof rows !== 'undefined' && rows && rows.length > 0) {
-            rows.forEach(function(replay) {
-                var found = false;
-                this.queue.some(function(replayObj) {
-                    found = replay.replayId == replayObj.replayId;
-                    return found;
-                });
-                if(!found) { this.queue.push({ replayId: replay.replayId, checkpointTime: replay.checkpointTime, attempts: replay.attempts }); }
-            }.bind(this));
-            this.initializeWorkers();
-        } else {
-            // wait for the queue to catch up
-            setTimeout(function() {
-                Logger.writeToConsole('There were no reserved jobs for: '.yellow + this.processId + ' waiting '.yellow + (process.env.QUEUE_CLIENT_WAIT_DELAY_MS/1000) + ' seconds before trying again'.yellow);
-                if(this.socket !== null) {
-                    this.socket.write(JSON.stringify({ action: 'getReplays' }));
-                } else {
-                    this.createSocket();
-                }
-            }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
-        }
-    }.bind(this));
+    if(!this.fetchingReplays) {
+        this.fetchingReplays = true;
+        Logger.writeToConsole('getting replays from sql for: '.cyan + this.processId);
+        var conn = new Connection();
+        var selectQuery = 'SELECT * FROM queue WHERE reserved_by="' + this.processId + '"';
+        conn.query(selectQuery, function(rows) {
+            if(typeof rows !== 'undefined' && rows && rows.length > 0) {
+                rows.forEach(function(replay) {
+                    var found = false;
+                    this.queue.some(function(replayObj) {
+                        found = replay.replayId == replayObj.replayId;
+                        return found;
+                    });
+                    if(!found) { this.queue.push({ replayId: replay.replayId, checkpointTime: replay.checkpointTime, attempts: replay.attempts }); }
+                }.bind(this));
+                this.fetchingReplays = false;
+                this.initializeWorkers();
+            } else {
+                // wait for the queue to catch up
+                setTimeout(function() {
+                    this.fetchingReplays = false;
+                    Logger.writeToConsole('There were no reserved jobs for: '.yellow + this.processId + ' waiting '.yellow + (process.env.QUEUE_CLIENT_WAIT_DELAY_MS/1000) + ' seconds before trying again'.yellow);
+                    if(this.socket !== null) {
+                        this.socket.write(JSON.stringify({ action: 'getReplays' }));
+                    } else {
+                        this.createSocket();
+                    }
+                }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
+            }
+        }.bind(this));
+    }
+
 };
 
 /**
@@ -199,10 +206,10 @@ Queue.prototype.getNextJob = function() {
                 this.waiting = true;
                 // When these timeouts expire, check if we can just get the next job
                 setTimeout(function() {
+                    this.waiting = false;
                     if(this.queue.length > 0) {
                         this.getNextJob();
                     } else {
-                        this.waiting = false;
                         this.socket.write(JSON.stringify({ action: 'getReplays' }));
                     }
                 }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
