@@ -94,7 +94,7 @@ Queue.prototype.bindSocketListeners = function() {
                     setTimeout(function() {
                         Logger.writeToConsole('[QUEUE] Attempting to get lock on Queue Manager'.yellow);
                         this.socket.write(JSON.stringify({ action: 'getReplays' }));
-                    }.bind(this), QUEUE_CLIENT_WAIT_DELAY_MS);
+                    }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
                 }
                 break;
             case 'disconnect':
@@ -139,7 +139,7 @@ Queue.prototype.getReservedReplays = function(callback) {
                 } else {
                     this.createSocket();
                 }
-            }.bind(this), QUEUE_CLIENT_WAIT_DELAY_MS);
+            }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
         }
     }.bind(this));
 };
