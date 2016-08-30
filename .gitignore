@@ -3,4 +3,5 @@
 conf.js
 .env
 parser.yaml
+queueManager.yaml
 /logs/log.txt
