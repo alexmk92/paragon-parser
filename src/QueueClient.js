@@ -51,7 +51,7 @@ Queue.prototype.createSocket = function() {
     this.socket = new net.Socket();
     this.socket.processId = this.processId;
     this.bindSocketListeners();
-    this.socket.connect(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_SERVER, function() {
+    this.socket.connect(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_HOST, function() {
         this.socket.write(JSON.stringify({ action: 'connectWithProcessId', processId: this.processId }));
     }.bind(this));
 };
