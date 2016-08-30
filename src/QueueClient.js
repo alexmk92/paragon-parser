@@ -166,9 +166,15 @@ Queue.prototype.terminate = function() {
  */
 
 Queue.prototype.initializeWorkers = function() {
+    // Schedule all workers, otherwise schedule ones that need work
     if(!this.initialized) {
         this.initialized = true;
         for(var i = 0; i < this.maxWorkers; i++) {
+            this.getNextJob();
+        }
+    } else {
+        var diff = this.maxWorkers - this.workers.length;
+        for(var i = 0; i < diff; i++) {
             this.getNextJob();
         }
     }
@@ -190,13 +196,9 @@ Queue.prototype.initializeWorkers = function() {
  */
 
 Queue.prototype.getNextJob = function() {
-    if(this.workers.length < this.maxWorkers) {
+    if(this.queue.length > 0 && this.workers.length < this.maxWorkers) {
         var job = this.queue.shift();
-        if(job) {
-            this.runTask(new Replay(this.mongoconn, job.replayId, job.checkpointTime, job.attempts, this));
-        } else {
-            this.socket.write(JSON.stringify({ action: 'getReplays' }));
-        }
+        this.runTask(new Replay(this.mongoconn, job.replayId, job.checkpointTime, job.attempts, this));
     } else {
         if(this.socket !== null) {
             if(!this.waiting) {
