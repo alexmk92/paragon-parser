@@ -1,5 +1,5 @@
 apps:
-  - script   : ./src/queueManager.js
+  - script   : ./src/QueueManager.js
     name     : 'queueManager'
     instances: 1
     exec_mode: fork
