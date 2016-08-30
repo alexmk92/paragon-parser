@@ -121,7 +121,6 @@ Queue.prototype.getReservedReplays = function(callback) {
     var selectQuery = 'SELECT * FROM queue WHERE reserved_by="' + this.processId + '"';
     conn.query(selectQuery, function(rows) {
         if(typeof rows !== 'undefined' && rows && rows.length > 0) {
-            console.log('pulled back ' + rows.length + ' rows');
             rows.forEach(function(replay) {
                 var found = false;
                 this.queue.some(function(replayObj) {
@@ -245,7 +244,7 @@ Queue.prototype.runTask = function(replay) {
         Logger.writeToConsole('[QUEUE] Running work for Replay: '.green + replay.replayId);
         replay.parseDataAtCheckpoint();
     } else {
-        Logger.writeToConsole('[QUEUE] Another worker on this box is already running work for replay: '.yellow + replay.replayId + '. Fetching new job.'.yellow);
+        //Logger.writeToConsole('[QUEUE] Another worker on this box is already running work for replay: '.yellow + replay.replayId + '. Fetching new job.'.yellow);
         this.getNextJob();
     }
 };
