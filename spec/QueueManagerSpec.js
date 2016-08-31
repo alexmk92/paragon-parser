@@ -262,7 +262,7 @@ describe("QueueClient", function() {
 function createClient(processId) {
     var client = new net.Socket();
     client.processId = processId;
-    client.connect(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_SERVER, function() {
+    client.connect(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_HOST, function() {
         client.write(JSON.stringify({ action: 'connectWithProcessId', processId: processId }));
     });
     return client;
