@@ -111,7 +111,7 @@ cleanOnStart(function() {
             'AS t)';
 
         conn.query(updateQuery, function(rows) {
-            if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+            if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                 return callback(rows.affectedRows);
             } else {
                 return callback(null);
@@ -127,7 +127,7 @@ cleanOnStart(function() {
             Logger.writeToConsole('Disposing of all replays reserved by: '.yellow + socket.processId);
             var updateQuery = 'UPDATE queue SET priority=5, completed=false, checkpointTime=0, reserved_by=NULL WHERE reserved_by="' + socket.processId + '"';
             conn.query(updateQuery, function(rows) {
-                if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+                if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                     Logger.writeToConsole('Released: '.green + rows.affectedRows + ' replays for process: '.green + socket.processId);
                 } else {
                     Logger.writeToConsole('Process: '.green + socket.processId + ' did not have any replays reserved.'.green);
@@ -145,7 +145,7 @@ function cleanOnStart(callback) {
     var updateQuery = 'UPDATE queue SET priority=5, completed=false, checkpointTime=0, reserved_by=NULL WHERE reserved_by IS NOT NULL';
     var conn = new Connection();
     conn.query(updateQuery, function(rows) {
-        if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+        if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
             Logger.writeToConsole('Disposed of: '.green + rows.affectedRows + ' replays, server started successfully!'.green);
         } else {
             Logger.writeToConsole('The server had not reserved any replays, server started successfully!'.green);
