@@ -111,7 +111,7 @@ cleanOnStart(function() {
             'AS t)';
 
         conn.query(updateQuery, function(rows) {
-            if(rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+            if(rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                 return callback(rows.affectedRows);
             } else {
                 return callback(null);
