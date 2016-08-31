@@ -820,11 +820,11 @@ Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
  *
  * @param {number} time1 - The first checkpoint time we want to start getting tower kills from
  * @param {number} time2 - The second checkpoint time we want to end getting tower kills from
- * @param {function} cb - Callback to determine when all events have been processed, this allows
+ * @param {function} callback - Callback to determine when all events have been processed, this allows
  * the promise in @getEventFeedAtCheckpoint to resolve when all events are completed
  */
 
-Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
+Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, callback) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=towerKills&time1=' + time1 + '&time2=' + time2;
     requestify.get(url).then(function (response) {
         var events = [];
@@ -836,7 +836,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, cb) {
                 });
             }
         }
-        cb(events);
+        return callback(events);
     }).catch(function(err) {
         var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
         this.queueManager.failed(this);

@@ -112,9 +112,9 @@ cleanOnStart(function() {
 
         conn.query(updateQuery, function(rows) {
             if(rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-                callback(rows.affectedRows);
+                return callback(rows.affectedRows);
             } else {
-                callback(null);
+                return callback(null);
             }
         })
     }
@@ -132,10 +132,10 @@ cleanOnStart(function() {
                 } else {
                     Logger.writeToConsole('Process: '.green + socket.processId + ' did not have any replays reserved.'.green);
                 }
-                callback();
+                return callback();
             });
         } else {
-            callback();
+            return callback();
         }
     }
 });
@@ -150,7 +150,7 @@ function cleanOnStart(callback) {
         } else {
             Logger.writeToConsole('The server had not reserved any replays, server started successfully!'.green);
         }
-       callback();
+        return callback();
     });
 }
 

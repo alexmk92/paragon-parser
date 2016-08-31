@@ -480,20 +480,20 @@ Queue.prototype.uploadFile = function(replay, callback) {
                 { upsert: true},
                 function(err, results) {
                     if(err) {
-                        callback({ message: 'failed to upload file'});
+                        return callback({ message: 'failed to upload file'});
                     } else {
                         Logger.writeToConsole('[QUEUE] Replay file: '.green + replay.replayId + ' uploaded to mongo!'.green);
-                        callback(null);
+                        return callback(null);
                     }
                 }.bind(this));
         } catch(e) {
             this.failed(replay);
             Logger.writeToConsole('[MONGO ERROR] in OldQueue.js when uploading relay: '.red + replay.replayId + '.  Error: '.red, e);
-            callback({ message: 'failed to upload' });
+            return callback({ message: 'failed to upload' });
         }
     } else {
         this.failed(replay);
-        callback({ message: 'replay JSON was null'})
+        return callback({ message: 'replay JSON was null'})
     }
 };
 
