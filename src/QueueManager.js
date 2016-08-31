@@ -75,7 +75,7 @@ cleanOnStart(function() {
         socket.on('error', function() {
             dispose(socket);
         });
-    }).listen(process.env.QUEUE_MANAGER_PORT);
+    }).listen(process.env.QUEUE_MANAGER_PORT, process.env.QUEUE_MANAGER_HOST);
 
     Logger.writeToConsole('['.green + process.pid + '] QueueManager server running on: '.green + process.env.QUEUE_MANAGER_HOST + ':' + process.env.QUEUE_MANAGER_PORT);
 

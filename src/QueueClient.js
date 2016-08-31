@@ -74,33 +74,37 @@ Queue.prototype.createSocket = function() {
  */
 
 Queue.prototype.bindSocketListeners = function() {
-    this.socket.on('data', function(payload) {
-        var data = JSON.parse(payload);
-        switch(data.action) {
-            case 'connect':
-                if(data.code === 200)  {
-                    this.socket.write(JSON.stringify({ action: 'getReplays' }));
-                } else {
-                    this.processId = (this.processId + Math.floor((Math.random() * 999) + 1));
-                    this.createSocket();
-                }
-                break;
-            case 'replays':
-                if(data.code === 200) {
-                    this.getReservedReplays();
-                } else if(data.code === 409) {
-                    Logger.writeToConsole(data.message.red);
-                    setTimeout(function() {
-                        Logger.writeToConsole('[QUEUE] Attempting to get lock on Queue Manager'.yellow);
+    if(this.socket !== null) {
+        this.socket.on('data', function(payload) {
+            var data = JSON.parse(payload);
+            switch(data.action) {
+                case 'connect':
+                    if(data.code === 200)  {
                         this.socket.write(JSON.stringify({ action: 'getReplays' }));
-                    }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
-                }
-                break;
-            case 'disconnect':
-                Logger.writeToConsole(data.message.yellow);
-                break;
-        }
-    }.bind(this));
+                    } else {
+                        this.processId = (this.processId + Math.floor((Math.random() * 999) + 1));
+                        this.createSocket();
+                    }
+                    break;
+                case 'replays':
+                    if(data.code === 200) {
+                        this.getReservedReplays();
+                    } else if(data.code === 409) {
+                        Logger.writeToConsole(data.message.red);
+                        setTimeout(function() {
+                            Logger.writeToConsole('[QUEUE] Attempting to get lock on Queue Manager'.yellow);
+                            this.socket.write(JSON.stringify({ action: 'getReplays' }));
+                        }.bind(this), process.env.QUEUE_CLIENT_WAIT_DELAY_MS);
+                    }
+                    break;
+                case 'disconnect':
+                    Logger.writeToConsole(data.message.yellow);
+                    break;
+            }
+        }.bind(this));
+    } else {
+        this.createSocket();
+    }
 };
 
 /**

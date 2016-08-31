@@ -51,7 +51,6 @@ MongoClient.connect(url, function(err, db) {
         Logger.writeToConsole('[MONGODB] Error connecting to MongoDB'.red, err);
     } else {
         Logger.writeToConsole('[PARSER] Process: '.cyan + processId + ' is building a queue with '.cyan + workers + ' workers'.cyan);
-        //if(!queue) queue = new Queue(mongodb, workers, processId);
         if(!queue) queue = new QueueClient(mongodb, workers, processId);
     }
 });
