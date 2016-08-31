@@ -319,7 +319,7 @@ Queue.prototype.failed = function(replay) {
         replay.replayJSON = null;
         replay.deleting = true;
         var completed = replay.attempts > 10 ? 1 : 0;
-        var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority = 2, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority = 5, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
             if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
@@ -355,7 +355,7 @@ Queue.prototype.schedule = function(replay, ms) {
         var conn = new Connection();
         var scheduledDate = new Date(Date.now() + ms);
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
-        var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=3, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=6, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function() {
             this.uploadFile(replay, function() {
                 this.getNextJob();

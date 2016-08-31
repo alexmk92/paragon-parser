@@ -1,0 +1,6 @@
+apps:
+  - script   : ./scraper.js
+    name     : 'scraper'
+    instances: 1
+    exec_mode: fork
+    watch: false

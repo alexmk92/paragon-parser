@@ -2,6 +2,7 @@
 /node_modules
 conf.js
 .env
+scraper.yaml
 parser.yaml
 queueManager.yaml
 /logs/log.txt
