@@ -321,8 +321,8 @@ Queue.prototype.failed = function(replay) {
         var completed = replay.attempts > 10 ? 1 : 0;
         var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority = 5, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
-            if(row === null && replay.queryAttempts < 15) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+            if(row === null && replay.queryAttempts < 99999999999) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
@@ -364,8 +364,8 @@ Queue.prototype.schedule = function(replay, ms) {
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
         var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=6, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function(rows) {
-            if(rows === null && replay.queryAttempts < 15) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+            if(rows === null && replay.queryAttempts < 99999999999) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
@@ -407,8 +407,8 @@ Queue.prototype.removeItemFromQueue = function(replay) {
                 Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
                 var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
                 conn.query(query, function(rows) {
-                    if(rows === null && replay.queryAttempts < 15) {
-                        console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                    if(rows === null && replay.queryAttempts < 99999999999) {
+                        console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                         setTimeout(function() {
                             console.log('Sending query for replay: '.yellow + replay.replayId);
                             replay.queryAttempts++;
@@ -451,8 +451,8 @@ Queue.prototype.removeDeadReplay = function(replay) {
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         replay.deleting = true;
         conn.query(query, function(rows) {
-            if(rows === null && replay.queryAttempts < 15) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+            if(rows === null && replay.queryAttempts < 99999999999) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
@@ -489,8 +489,8 @@ Queue.prototype.removeBotGame = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function(rows) {
-            if(rows === null && replay.queryAttempts < 15) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+            if(rows === null && replay.queryAttempts < 99999999999) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;

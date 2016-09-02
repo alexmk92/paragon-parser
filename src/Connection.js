@@ -55,7 +55,7 @@ Connection.prototype.query = function(queryString, callback) {
             this.connection.query(queryString, function(err, rows) {
                 if(err) {
                     //
-                    Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful.  Error was: ".red, err);
+                    Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful.".red);
                     this.end();
                     return callback(null);
                 }
