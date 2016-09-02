@@ -321,7 +321,14 @@ Queue.prototype.failed = function(replay) {
         var completed = replay.attempts > 10 ? 1 : 0;
         var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority = 5, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
-            if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
+            if(row === null && replay.queryAttempts < 15) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                setTimeout(function() {
+                    console.log('Sending query for replay: '.yellow + replay.replayId);
+                    replay.queryAttempts++;
+                    this.failed(replay);
+                }.bind(this), 1000);
+            } else if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
                 this.deleteFile(replay);
                 this.getNextJob();
@@ -356,10 +363,19 @@ Queue.prototype.schedule = function(replay, ms) {
         var scheduledDate = new Date(Date.now() + ms);
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
         var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=6, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
-        conn.query(query, function() {
-            this.uploadFile(replay, function() {
-                this.getNextJob();
-            }.bind(this));
+        conn.query(query, function(rows) {
+            if(rows === null && replay.queryAttempts < 15) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                setTimeout(function() {
+                    console.log('Sending query for replay: '.yellow + replay.replayId);
+                    replay.queryAttempts++;
+                    this.schedule(replay, ms);
+                }.bind(this), 1000);
+            } else {
+                this.uploadFile(replay, function() {
+                    this.getNextJob();
+                }.bind(this));
+            }
         }.bind(this));
     }.bind(this), function() {
         this.schedule(replay, ms);
@@ -390,8 +406,18 @@ Queue.prototype.removeItemFromQueue = function(replay) {
             if(err === null) {
                 Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
                 var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
-                conn.query(query, function() {}.bind(this));
-                this.getNextJob();
+                conn.query(query, function(rows) {
+                    if(rows === null && replay.queryAttempts < 15) {
+                        console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                        setTimeout(function() {
+                            console.log('Sending query for replay: '.yellow + replay.replayId);
+                            replay.queryAttempts++;
+                            this.removeItemFromQueue(replay);
+                        }.bind(this), 1000);
+                    } else {
+                        this.getNextJob();
+                    }
+                }.bind(this));
             } else {
                 Logger.writeToConsole('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
                 replay.replayJSON = Replay.getEmptyReplayObject();
@@ -424,10 +450,19 @@ Queue.prototype.removeDeadReplay = function(replay) {
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         replay.deleting = true;
-        conn.query(query, function() {
-            Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
-            this.deleteFile(replay);
-            this.getNextJob();
+        conn.query(query, function(rows) {
+            if(rows === null && replay.queryAttempts < 15) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                setTimeout(function() {
+                    console.log('Sending query for replay: '.yellow + replay.replayId);
+                    replay.queryAttempts++;
+                    this.removeDeadReplay(replay);
+                }.bind(this), 1000);
+            } else {
+                Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
+                this.deleteFile(replay);
+                this.getNextJob();
+            }
         }.bind(this));
     }.bind(this), function() {
         this.removeDeadReplay(replay);
@@ -453,9 +488,18 @@ Queue.prototype.removeBotGame = function(replay) {
 
         var conn = new Connection();
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
-        conn.query(query, function() {
-            Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
-            this.getNextJob();
+        conn.query(query, function(rows) {
+            if(rows === null && replay.queryAttempts < 15) {
+                console.log('Attempt: '.yellow + replay.queryAttempts + '/15 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                setTimeout(function() {
+                    console.log('Sending query for replay: '.yellow + replay.replayId);
+                    replay.queryAttempts++;
+                    this.removeBotGame(replay);
+                }.bind(this), 1000);
+            } else {
+                Logger.writeToConsole('[QUEUE] Replay removed as it is a bot game for: '.yellow + replay.replayId);
+                this.getNextJob();
+            }
         }.bind(this));
     }.bind(this), function() {
         this.removeBotGame(replay);

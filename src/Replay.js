@@ -37,6 +37,7 @@ var Replay = function(db, replayId, checkpointTime, attempts, queue) {
     this.replayJSON = null;
     this.maxCheckpointTime = 0;
     this.checkpointTime = 0;
+    this.queryAttempts = 0; // Used for when there is a Deadlock in SQL
     this.attempts = attempts;
 
     this.queueManager = queue;
