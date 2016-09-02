@@ -161,7 +161,7 @@ Connection.prototype.query = function(queryString, callback) {
             this.connection.query(queryString, function(err, rows) {
                 if(err) {
                     //
-                    Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful".red);
+                    Logger.writeToConsole("[MYSQL] Error: Query: ".red + queryString + ", was not successful.  Error was: ".red, err);
                     callback(null);
                 }
                 if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {
