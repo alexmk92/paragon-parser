@@ -1064,25 +1064,37 @@ Replay.latest = function(flag, live, recordFrom) {
             if (typeof response.body !== 'undefined' && response.body.length > 0) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
-                    var VALUES = '';
+                    var SELECT_STRING = '';
                     data.replays.forEach(function (replay) {
                         if(new Date(replay.Timestamp) >= recordFrom) {
                             // any new items have the highest priority
-                            VALUES += "('" + replay.SessionName + "', " + isLive + ", 4), ";
+                            SELECT_STRING += '"' + replay.SessionName + '", ';
                         }
                     });
-                    VALUES = VALUES.substr(0, VALUES.length - 2);
-                    if(VALUES !== '') {
-                        var query = 'INSERT IGNORE INTO queue (replayId, live, priority) VALUES ' + VALUES;
+                    SELECT_STRING = SELECT_STRING.substr(0, SELECT_STRING.length -2);
+
+                    if(SELECT_STRING !== '') {
+                        var query = 'SELECT replayId FROM queue WHERE replayId NOT IN (' + SELECT_STRING + ')';
                         conn.query(query, function(rows) {
-                            if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-                                console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
+                            var VALUES = '';
+                            if(typeof rows !== 'undefined' && rows && rows.length > 0) {
+                                rows.forEach(function(row) {
+                                    VALUES += "('" + row.replayId + "', " + isLive + ", 1), ";
+                                });
+                                if(VALUES !== '') {
+                                    VALUES = VALUES.substr(0, VALUES.length - 2);
+                                    query = 'INSERT INTO queue (replayId, live, priority) VALUES ' + VALUES;
+                                    conn.query(query, function(rows) {
+                                        if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+                                            console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
+                                        }
+                                    });
+                                    resolve(rows);
+                                } else {
+                                    reject('No valid replays');
+                                }
                             }
                         });
-
-                        resolve(data.replays);
-                    } else {
-                        reject('No valid replays');
                     }
                 }
                 reject('0 Replays were on the endpoint');
