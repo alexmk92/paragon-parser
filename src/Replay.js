@@ -1074,7 +1074,11 @@ Replay.latest = function(flag, live, recordFrom) {
                     VALUES = VALUES.substr(0, VALUES.length - 2);
                     if(VALUES !== '') {
                         var query = 'INSERT IGNORE INTO queue (replayId, live, priority) VALUES ' + VALUES;
-                        conn.query(query, function() {});
+                        conn.query(query, function(rows) {
+                            if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows')) {
+                                console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
+                            }
+                        });
 
                         resolve(data.replays);
                     } else {
