@@ -15,7 +15,7 @@ var Logger = require('./src/Logger');
 var colors = require('colors');
 var cluster = require('cluster');
 
-var LIVE_REPLAYS_TIMEOUT = 10000;
+var LIVE_REPLAYS_TIMEOUT = 5000;
 var EXPIRED_REPLAYS_TIMEOUT = 5000;
 
 if(cluster.isMaster) {

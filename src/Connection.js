@@ -59,9 +59,6 @@ Connection.prototype.query = function(queryString, callback) {
                     this.end();
                     return callback(null);
                 }
-                if(typeof rows !== "undefined" && rows  && rows.affectedRows > 1) {
-                    Logger.writeToConsole('[MYSQL] '.green + rows.affectedRows + ' rows affected.'.green);
-                }
                 this.end();
                 return callback(rows);
             }.bind(this));
