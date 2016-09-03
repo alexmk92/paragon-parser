@@ -1075,7 +1075,7 @@ Replay.latest = function(flag, live, recordFrom) {
                     if(VALUES !== '') {
                         var query = 'INSERT IGNORE INTO queue (replayId, live, priority) VALUES ' + VALUES;
                         conn.query(query, function(rows) {
-                            if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows')) {
+                            if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                                 console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
                             }
                         });
