@@ -342,7 +342,9 @@ Queue.prototype.failed = function(replay) {
             }
         }.bind(this));
     }.bind(this), function() {
-        this.failed(replay);
+        setTimeout(function() {
+            this.failed(replay);
+        }.bind(this), 1000);
     }.bind(this));
 
 };
@@ -382,7 +384,9 @@ Queue.prototype.schedule = function(replay, ms) {
             }
         }.bind(this));
     }.bind(this), function() {
-        this.schedule(replay, ms);
+        setTimeout(function() {
+            this.schedule(replay, ms);
+        }.bind(this), 1000);
     }.bind(this));
 
 };
@@ -429,7 +433,9 @@ Queue.prototype.removeItemFromQueue = function(replay) {
             }
         }.bind(this));
     }.bind(this), function() {
-        this.removeItemFromQueue(replay);
+        setTimeout(function() {
+            this.removeItemFromQueue(replay);
+        }.bind(this), 1000);
     }.bind(this));
 
 };
@@ -469,7 +475,9 @@ Queue.prototype.removeDeadReplay = function(replay) {
             }
         }.bind(this));
     }.bind(this), function() {
-        this.removeDeadReplay(replay);
+        setTimeout(function() {
+            this.removeDeadReplay(replay);
+        }.bind(this), 1000);
     }.bind(this));
 
 };
@@ -506,7 +514,9 @@ Queue.prototype.removeBotGame = function(replay) {
             }
         }.bind(this));
     }.bind(this), function() {
-        this.removeBotGame(replay);
+        setTimeout(function() {
+            this.removeBotGame(replay);
+        }.bind(this), 1000);
     }.bind(this));
 
 };
