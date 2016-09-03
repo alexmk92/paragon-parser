@@ -1064,29 +1064,46 @@ Replay.latest = function(flag, live, recordFrom) {
                 data = JSON.parse(response.body);
                 if (data.hasOwnProperty('replays')) {
                     var SELECT_STRING = '';
+                    var VALUES = '';
+                    var replays = [];
+
                     data.replays.forEach(function (replay) {
                         if(new Date(replay.Timestamp) >= recordFrom) {
                             // any new items have the highest priority
                             SELECT_STRING += '"' + replay.SessionName + '", ';
+                            VALUES += "('" + replay.SessionName + "', " + isLive + ", 3), ";
+                            replays.push(replay);
                         }
                     });
                     SELECT_STRING = SELECT_STRING.substr(0, SELECT_STRING.length -2);
-
                     if(SELECT_STRING !== '') {
-                        var query = 'SELECT replayId FROM queue WHERE replayId NOT IN (' + SELECT_STRING + ')';
-                        console.log('running select query: ', query);
+                        var query = 'SELECT replayId FROM queue WHERE replayId IN (' + SELECT_STRING + ')';
                         var conn = new Connection();
+                        //console.log(query);
                         conn.query(query, function(rows) {
                             conn = new Connection();
-                            var VALUES = '';
-                            if(typeof rows !== 'undefined' && rows && rows.length > 0) {
-                                rows.forEach(function(row) {
-                                    VALUES += "('" + row.replayId + "', " + isLive + ", 1), ";
-                                });
+                            if(typeof rows !== 'undefined' && rows) {
+                                // Reset the values string
+                                if(rows.length > 0) {
+                                    VALUES = '';
+                                    replays.forEach(function(replay) {
+                                        var found = false;
+                                        rows.some(function(row) {
+                                            found = row.replayId === replay.SessionName;
+                                            return found;
+                                        });
+                                        if(!found) {
+                                            //console.log( replay.SessionName + ' was unique'.green);
+                                            VALUES += "('" + replay.SessionName + "', " + isLive + ", 3), ";
+                                        } else {
+                                            //console.log('Found duplicate replay: '.yellow + replay.SessionName);
+                                        }
+                                    });
+                                }
                                 if(VALUES !== '') {
                                     VALUES = VALUES.substr(0, VALUES.length - 2);
                                     query = 'INSERT INTO queue (replayId, live, priority) VALUES ' + VALUES;
-                                    console.log('running insert query: ', query);
+                                    //console.log('running insert query: ', query);
                                     conn.query(query, function(rows) {
                                         if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                                             console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);

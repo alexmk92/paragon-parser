@@ -15,7 +15,7 @@ var Logger = require('./src/Logger');
 var colors = require('colors');
 var cluster = require('cluster');
 
-var LIVE_REPLAYS_TIMEOUT = 5000;
+var LIVE_REPLAYS_TIMEOUT = 2500;
 var EXPIRED_REPLAYS_TIMEOUT = 5000;
 
 if(cluster.isMaster) {
@@ -30,7 +30,7 @@ if(cluster.isMaster) {
 
 if(cluster.isWorker) {
 
-    var recordFrom = new Date('August 16, 2016 21:00:00');
+    var recordFrom = new Date('August 10, 2016 19:30:00');
 
     function getCustomAndFeaturedReplays() {
         Replay.latest(null, 'false', recordFrom);
