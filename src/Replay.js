@@ -1044,7 +1044,6 @@ Replay.prototype.getFileHandle = function() {
  */
 
 Replay.latest = function(flag, live, recordFrom) {
-    var conn = new Connection();
     var url = REPLAY_URL + '/replay/v2/replay';
     if(typeof flag !== 'undefined' && flag !== null) {
         url += '?user=flag_' + flag;
@@ -1075,7 +1074,10 @@ Replay.latest = function(flag, live, recordFrom) {
 
                     if(SELECT_STRING !== '') {
                         var query = 'SELECT replayId FROM queue WHERE replayId NOT IN (' + SELECT_STRING + ')';
+                        console.log('running select query: ', query);
+                        var conn = new Connection();
                         conn.query(query, function(rows) {
+                            conn = new Connection();
                             var VALUES = '';
                             if(typeof rows !== 'undefined' && rows && rows.length > 0) {
                                 rows.forEach(function(row) {
@@ -1084,6 +1086,7 @@ Replay.latest = function(flag, live, recordFrom) {
                                 if(VALUES !== '') {
                                     VALUES = VALUES.substr(0, VALUES.length - 2);
                                     query = 'INSERT INTO queue (replayId, live, priority) VALUES ' + VALUES;
+                                    console.log('running insert query: ', query);
                                     conn.query(query, function(rows) {
                                         if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
                                             console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
@@ -1091,8 +1094,11 @@ Replay.latest = function(flag, live, recordFrom) {
                                     });
                                     resolve(rows);
                                 } else {
+                                    conn.end();
                                     reject('No valid replays');
                                 }
+                            } else {
+                                conn.end();
                             }
                         });
                     }
