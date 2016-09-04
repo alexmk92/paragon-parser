@@ -163,7 +163,8 @@ Replay.prototype.parseDataAtCheckpoint = function() {
 
                             var diff = (new Date() - this.replayJSON.endedAt) / 60000;
 
-                            if(this.replayJSON.scheduledBeforeEnd == true || diff > 3) {
+                            // If 2 mins has already parsed or we finished processing, get the final chunks
+                            if(this.replayJSON.scheduledBeforeEnd == true || diff > 2) {
                                 this.getEventFeedForCheckpoint(this.replayJSON.previousCheckpointTime, this.replayJSON.latestCheckpointTime).then(function() {
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         if(newPlayers !== null) {
@@ -179,9 +180,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                     }.bind(this));
                                 }.bind(this));
                             } else {
+                                // 3 mins hasn't parsed, we're still streaming on PGG, therefore we need to hit this every 30 seconds for a max of 8 times to get all chunks
                                 this.replayJSON.isLive = true;
-                                // Hit this 8 times (3 minutes 40 seconds) so we get the fully parsed replay on a live replay
-                                if(this.replayJSON.endChunksParsed > 8) {
+                                // Hit this 8 times (2 minutes 30 seconds) so we get the fully parsed replay on a live replay
+                                if(this.replayJSON.endChunksParsed > 5) {
                                     this.replayJSON.scheduledBeforeEnd = true;
                                     this.parseDataAtCheckpoint();
                                 } else {

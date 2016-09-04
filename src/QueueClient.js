@@ -103,7 +103,7 @@ Queue.prototype.bindSocketListeners = function() {
                         break;
                 }
             } catch(e) {
-                console.log('ERROR: When parsing: ', payload);
+                Logger.writeToConsole('ERROR: When parsing: ', payload);
             }
         }.bind(this));
     } else {
@@ -326,9 +326,8 @@ Queue.prototype.failed = function(replay) {
         var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority=1, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
             if(row === null && replay.queryAttempts < 99999999999) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
-                    console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
                     this.failed(replay);
                 }.bind(this), 1000);
@@ -371,9 +370,8 @@ Queue.prototype.schedule = function(replay, seconds) {
         var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL ' + seconds + ' SECOND), priority=2, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function(rows) {
             if(rows === null && replay.queryAttempts < 99999999999) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
-                    console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
                     this.schedule(replay, ms);
                 }.bind(this), 1000);
@@ -413,29 +411,28 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         delete replay.replayJSON.endChunksParsed;
         delete replay.replayJSON.scheduledBeforeEnd;
 
-        console.log(replay.replayJSON);
-
-        this.uploadFile(replay, function(err) {
-            if(err === null) {
-                Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
-                var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
-                conn.query(query, function(rows) {
-                    if(rows === null && replay.queryAttempts < 99999999999) {
-                        console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
-                        setTimeout(function() {
-                            console.log('Sending query for replay: '.yellow + replay.replayId);
-                            replay.queryAttempts++;
-                            this.removeItemFromQueue(replay);
-                        }.bind(this), 1000);
-                    } else {
-                        this.getNextJob();
-                    }
-                }.bind(this));
-            } else {
-                Logger.writeToConsole('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
-                replay.replayJSON = Replay.getEmptyReplayObject();
-                this.failed(replay);
-            }
+        this.deleteFile(replay, function(err) {
+            this.uploadFile(replay, function(err) {
+                if(err === null) {
+                    Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
+                    var query = 'UPDATE queue SET reserved_by=null, priority=0, completed=true, completed_at=NOW(), live=0, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+                    conn.query(query, function(rows) {
+                        if(rows === null && replay.queryAttempts < 99999999999) {
+                            Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                            setTimeout(function() {
+                                replay.queryAttempts++;
+                                this.removeItemFromQueue(replay);
+                            }.bind(this), 1000);
+                        } else {
+                            this.getNextJob();
+                        }
+                    }.bind(this));
+                } else {
+                    Logger.writeToConsole('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
+                    replay.replayJSON = Replay.getEmptyReplayObject();
+                    this.failed(replay);
+                }
+            }.bind(this));
         }.bind(this));
     }.bind(this), function() {
         setTimeout(function() {
@@ -467,9 +464,8 @@ Queue.prototype.removeDeadReplay = function(replay) {
         replay.deleting = true;
         conn.query(query, function(rows) {
             if(rows === null && replay.queryAttempts < 99999999999) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
-                    console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
                     this.removeDeadReplay(replay);
                 }.bind(this), 1000);
@@ -507,9 +503,8 @@ Queue.prototype.removeBotGame = function(replay) {
         var query = 'UPDATE queue SET reserved_by=null, completed=true, completed_at=NOW() WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function(rows) {
             if(rows === null && replay.queryAttempts < 99999999999) {
-                console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
+                Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
-                    console.log('Sending query for replay: '.yellow + replay.replayId);
                     replay.queryAttempts++;
                     this.removeBotGame(replay);
                 }.bind(this), 1000);
@@ -574,7 +569,7 @@ Queue.prototype.uploadFile = function(replay, callback) {
  * @param {object} replay - The replay to delete
  */
 
-Queue.prototype.deleteFile = function(replay) {
+Queue.prototype.deleteFile = function(replay, callback) {
     try {
         if(!replay.deleting) {
             replay.deleting = true;
@@ -587,13 +582,16 @@ Queue.prototype.deleteFile = function(replay) {
                     } else {
                         Logger.writeToConsole('[QUEUE] Replay: '.yellow + replay.replayId + ' was deleted from mongo successfully.'.yellow);
                     }
+                    return callback();
                 }.bind(this));
         } else {
             Logger.writeToConsole('[QUEUE] Already deleting replay: '.yellow + replay.replayId + ' from mongo'.yellow);
+            return callback();
         }
     } catch(e) {
         replay.deleting = false;
         Logger.writeToConsole('[MONGO ERROR] in OldQueue.js when uploading replay: '.red + replay.replayId + '.  Error: '.red, e);
+        return callback();
     }
 };
 
