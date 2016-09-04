@@ -333,7 +333,7 @@ Queue.prototype.failed = function(replay) {
                 }.bind(this), 1000);
             } else if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
-                this.deleteFile(replay);
+                this.deleteFile(replay, function() {});
                 this.getNextJob();
             } else {
                 Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, but there was an error when updating it'.red);
@@ -471,7 +471,7 @@ Queue.prototype.removeDeadReplay = function(replay) {
                 }.bind(this), 1000);
             } else {
                 Logger.writeToConsole('[QUEUE] Replay '.red + replay.replayId + ' had either already been processed by another queue, or was a dead replay and reported no checkpoints in 6 minutes, removing from queue.'.red);
-                this.deleteFile(replay);
+                this.deleteFile(replay, function() {});
                 this.getNextJob();
             }
         }.bind(this));
@@ -567,6 +567,7 @@ Queue.prototype.uploadFile = function(replay, callback) {
  * is not important to the continued execution of the process.
  *
  * @param {object} replay - The replay to delete
+ * @param {function} callback - Determines when this is done
  */
 
 Queue.prototype.deleteFile = function(replay, callback) {
