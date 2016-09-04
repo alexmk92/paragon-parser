@@ -79,8 +79,10 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     this.replayJSON.previousCheckpointTime = checkpoint.previousCheckpointTime;
                     this.replayJSON.latestCheckpointTime = checkpoint.currentCheckpointTime;
                 }
-                //var liveString = data.isLive ? 'live' : 'not live';
-                //Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+
+                var liveString = data.isLive ? 'live' : 'not live';
+                Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
+
                 if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
                     // this happens when no checkponint data is found
                     this.attempts++;
@@ -89,15 +91,15 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     } else {
                         // TODO: Refactor this in future so its cleaner
                         // We check 5 times (5 minutes) to see if any events have happened, if not increment its failed attempts again
-                        if(this.attempts <= 4) {
+                        if(this.attempts <= 6) {
                             if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
-                                this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
+                                this.getPlayersAndGameType().then(function(matchInfo) {
                                     this.replayJSON.players = matchInfo.players;
                                     this.replayJSON.gameType = matchInfo.gameType;
                                     this.replayJSON.isFeatured = matchInfo.isFeatured;
                                     //Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
                                     Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats'.yellow);
-                                    return this.queueManager.schedule(this, 60000);
+                                    return this.queueManager.schedule(this, 90);
                                 }.bind(this), function(isBotGame) {
                                     if(isBotGame) {
                                         return this.queueManager.removeBotGame(this);
@@ -111,41 +113,25 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         }
                     }
                 } else if(checkpoint.code === 1 && data.isLive === true) {
-                    // Schedule the queue to come back to this item in 1 minute
-                    return this.queueManager.schedule(this, 60000);
+                    // Get all events as its a live game
+                    this.getEventFeedForCheckpoint(this.replayJSON.latestCheckpointTime, this.replayJSON.latestCheckpointTime).then(function() {
+                        this.updatePlayerStats().then(function(newPlayers) {
+                            if(newPlayers !== null) {
+                                this.replayJSON.players = newPlayers;
+                            }
+                            return this.queueManager.schedule(this, 30);
+                        }.bind(this));
+                    }.bind(this));
                 } else {
                     if(checkpoint.code === 0) {
                         // Update the file with the new streaming data
                         if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
-                            this.getPlayersAndGameType(this.replayId).then(function(matchInfo) {
+                            this.getPlayersAndGameType().then(function(matchInfo) {
                                 this.replayJSON.players = matchInfo.players;
                                 this.replayJSON.gameType = matchInfo.gameType;
                                 this.replayJSON.isFeatured = matchInfo.isFeatured;
 
-                                this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                    if(events.towerKills.length !== 0 || events.kills.length !== 0) {
-                                        events.towerKills.forEach(function(towerKill) {
-                                            var found = false;
-                                            if(this.replayJSON.towerKills.length > 0) {
-                                                this.replayJSON.towerKills.some(function(tk) {
-                                                    found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
-                                                    return found;
-                                                });
-                                            }
-                                            if(!found) this.replayJSON.towerKills.push(towerKill);
-                                        }.bind(this));
-
-                                        events.kills.forEach(function(kill) {
-                                            var found = false;
-                                            if(this.replayJSON.playerKills.length > 0) {
-                                                this.replayJSON.playerKills.some(function(k) {
-                                                    found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
-                                                    return found;
-                                                });
-                                            }
-                                            if(!found) this.replayJSON.playerKills.push(kill);
-                                        }.bind(this));
-                                    }
+                                this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function() {
                                     this.updatePlayerStats().then(function(newPlayers) {
                                         if(newPlayers !== null) {
                                             this.replayJSON.players = newPlayers;
@@ -161,30 +147,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                                 }
                             }.bind(this));
                         } else {
-                            this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function(events) {
-                                if(events.towerKills.length !== 0 || events.kills.length !== 0) {
-                                    events.towerKills.forEach(function (towerKill) {
-                                        var found = false;
-                                        if (this.replayJSON.towerKills.length > 0) {
-                                            this.replayJSON.towerKills.some(function (tk) {
-                                                found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
-                                                return found;
-                                            });
-                                        }
-                                        if (!found) this.replayJSON.towerKills.push(towerKill);
-                                    }.bind(this));
-
-                                    events.kills.forEach(function (kill) {
-                                        var found = false;
-                                        if (this.replayJSON.playerKills.length > 0) {
-                                            this.replayJSON.playerKills.some(function (k) {
-                                                found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
-                                                return found;
-                                            });
-                                        }
-                                        if (!found) this.replayJSON.playerKills.push(kill);
-                                    }.bind(this));
-                                }
+                            this.getEventFeedForCheckpoint(checkpoint.previousCheckpointTime, checkpoint.currentCheckpointTime).then(function() {
                                 this.updatePlayerStats().then(function(newPlayers) {
                                     if(newPlayers !== null) {
                                         this.replayJSON.players = newPlayers;
@@ -196,15 +159,44 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     } else if(checkpoint.code === 1 && this.maxCheckpointTime > 0) {
                         // Its finished lets get the match result
                         this.getMatchResult().then(function(matchResult) {
-                            this.replayJSON.winningTeam = matchResult.winningTeam;
-                            this.replayJSON.gameLength = matchResult.gameLength;
-                            this.replayJSON.isLive = false;
-                            this.replayJSON.previousCheckpointTime = this.replayJSON.latestCheckpointTime;
-
                             var ms = new Date(this.replayJSON.startedAt).getTime();
                             this.replayJSON.endedAt = new Date(ms + matchResult.gameLength);
-                            //this.endMatch();
-                            return this.queueManager.removeItemFromQueue(this);
+
+                            var diff = (new Date() - this.replayJSON.endedAt) / 60000;
+
+                            if(this.replayJSON.scheduledBeforeEnd == true || diff > 3) {
+                                this.getEventFeedForCheckpoint(this.replayJSON.previousCheckpointTime, this.replayJSON.latestCheckpointTime).then(function() {
+                                    this.updatePlayerStats().then(function(newPlayers) {
+                                        if(newPlayers !== null) {
+                                            this.replayJSON.players = newPlayers;
+                                        }
+                                        this.replayJSON.winningTeam = matchResult.winningTeam;
+                                        this.replayJSON.gameLength = matchResult.gameLength;
+                                        this.replayJSON.isLive = false;
+                                        this.replayJSON.previousCheckpointTime = this.replayJSON.latestCheckpointTime;
+
+                                        //this.endMatch();
+                                        return this.queueManager.removeItemFromQueue(this);
+                                    }.bind(this));
+                                }.bind(this));
+                            } else {
+                                this.replayJSON.isLive = true;
+                                // Hit this 8 times (3 minutes 40 seconds) so we get the fully parsed replay on a live replay
+                                if(this.replayJSON.endChunksParsed > 8) {
+                                    this.replayJSON.scheduledBeforeEnd = true;
+                                    this.parseDataAtCheckpoint();
+                                } else {
+                                    this.replayJSON.endChunksParsed++;
+                                    this.getEventFeedForCheckpoint(this.replayJSON.previousCheckpointTime, this.replayJSON.latestCheckpointTime).then(function() {
+                                        this.updatePlayerStats().then(function(newPlayers) {
+                                            if(newPlayers !== null) {
+                                                this.replayJSON.players = newPlayers;
+                                            }
+                                            return this.queueManager.schedule(this, 30);
+                                        }.bind(this));
+                                    }.bind(this));
+                                }
+                            }
                         }.bind(this), function(err) {
                             //Logger.writeToConsole('[REPLAY] Error when getting match result: '.red + err);
                             Logger.writeToConsole('[REPLAY] Error when getting match result for replay: '.red + this.replayId);
@@ -785,6 +777,7 @@ Replay.prototype.isGameLive = function() {
 
 
 Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
+    time2 = time2 + 210000; // Make sure we get event that could be in the future as the API doesn't schedule these, therefore we look 3.5 min in future extra
     return new Promise(function(resolve, reject) {
         if(this.replayJSON.gameType !== 'solo_ai' && this.replayJSON.gameType !== 'coop_ai') {
             var eventFeed = {
@@ -795,11 +788,34 @@ Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
                 eventFeed.towerKills = events;
                 this.getHeroKillsAtCheckpoint(time1, time2).then(function(events) {
                     eventFeed.kills = events;
-                    resolve(eventFeed);
-                });
+                    if(eventFeed.towerKills.length !== 0 || eventFeed.kills.length !== 0) {
+                        eventFeed.towerKills.forEach(function (towerKill) {
+                            var found = false;
+                            if (this.replayJSON.towerKills.length > 0) {
+                                this.replayJSON.towerKills.some(function (tk) {
+                                    found = (towerKill.killer === tk.killer && towerKill.timestamp === tk.timestamp);
+                                    return found;
+                                });
+                            }
+                            if (!found) this.replayJSON.towerKills.push(towerKill);
+                        }.bind(this));
+
+                        eventFeed.kills.forEach(function (kill) {
+                            var found = false;
+                            if (this.replayJSON.playerKills.length > 0) {
+                                this.replayJSON.playerKills.some(function (k) {
+                                    found = kill.killer === k.killer && kill.timestamp === k.timestamp && kill.killed === k.killed;
+                                    return found;
+                                });
+                            }
+                            if (!found) this.replayJSON.playerKills.push(kill);
+                        }.bind(this));
+                    }
+                    resolve();
+                }.bind(this));
             }.bind(this));
         } else {
-            resolve({ kills: [], towerKills: [] });
+            resolve();
         }
     }.bind(this));
 };
@@ -808,7 +824,7 @@ Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
  * @getTowerKillsAtCheckpoint :
  * ----------------------------
  * Type: GET
- * Endpoint: /replay/v2/replay/{replayId}/event?group=towerKills&time1={time1}
+ * Endpoint: /replay/v2/replay/{replayId}/event?group=towerKills&time1={time1}&time2={time2}
  *
  * Called from @getEventFeedAtCheckpoint and gets all tower kill events between the two
  * checkpoint times passed down, the promise resolves with an array of objects containing
@@ -826,19 +842,33 @@ Replay.prototype.getEventFeedForCheckpoint = function(time1, time2) {
 
 Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, callback) {
     var url = REPLAY_URL +'/replay/v2/replay/' + this.replayId + '/event?group=towerKills&time1=' + time1 + '&time2=' + time2;
+    var replay = this.replayJSON;
     requestify.get(url).then(function (response) {
         var events = [];
         if (typeof response.body !== 'undefined' && response.body.length > 0) {
             var data = JSON.parse(response.body);
             if (data.hasOwnProperty('events')) {
-                events = data.events.map(function(event) {
-                   return { killer: event.meta, timestamp: event.time1 };
-                });
+                events = [];
+                if(this.replayJSON.towerKills.length === 0) {
+                    events = data.events.map(function(event) {
+                        return { killer: event.meta, timestamp: event.time1 };
+                    });
+                } else {
+                    data.events.forEach(function(event) {
+                        var found = false;
+                        this.replayJSON.towerKills.some(function(towerEvent) {
+                            found = towerEvent.timestamp === event.time1 && towerEvent.killer === event.meta;
+                            return found;
+                        });
+                        if(!found) {
+                            events.push({ killer: event.meta, timestamp: event.time1 });
+                        }
+                    }.bind(this));
+                }
             }
         }
         return callback(events);
-    }).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+    }.bind(this)).catch(function(err) {
         return this.queueManager.failed(this);
     }.bind(this));
 };
@@ -847,7 +877,7 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, callback) {
  * @getTowerKillsAtCheckpoint :
  * ----------------------------
  * Type: GET
- * Endpoint: /replay/v2/replay/{replayId}/event?group=kills&time1={time1}
+ * Endpoint: /replay/v2/replay/{replayId}/event?group=kills&time1={time1}&time2={time2}
  *
  * Called from @getEventFeedAtCheckpoint and gets all player kill events between the two
  * checkpoint times passed down, the promise resolves with an array of objects containing
@@ -1079,7 +1109,6 @@ Replay.latest = function(flag, live, recordFrom) {
                     if(SELECT_STRING !== '') {
                         var query = 'SELECT replayId FROM queue WHERE replayId IN (' + SELECT_STRING + ')';
                         var conn = new Connection();
-                        //console.log(query);
                         conn.query(query, function(rows) {
                             conn = new Connection();
                             if(typeof rows !== 'undefined' && rows) {
@@ -1093,20 +1122,16 @@ Replay.latest = function(flag, live, recordFrom) {
                                             return found;
                                         });
                                         if(!found) {
-                                            //console.log( replay.SessionName + ' was unique'.green);
                                             VALUES += "('" + replay.SessionName + "', " + isLive + ", 3), ";
-                                        } else {
-                                            //console.log('Found duplicate replay: '.yellow + replay.SessionName);
                                         }
                                     });
                                 }
                                 if(VALUES !== '') {
                                     VALUES = VALUES.substr(0, VALUES.length - 2);
                                     query = 'INSERT INTO queue (replayId, live, priority) VALUES ' + VALUES;
-                                    //console.log('running insert query: ', query);
                                     conn.query(query, function(rows) {
                                         if(typeof rows !== 'undefined' && rows && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-                                            console.log('Inserted: '.green + rows.affectedRows + ' replays'.green);
+                                            Logger.writeToConsole('Inserted: '.green + rows.affectedRows + ' replays'.green);
                                         }
                                     });
                                     resolve(rows);
@@ -1190,6 +1215,8 @@ Replay.getEmptyReplayObject = function(replayId, checkpointTime) {
         replayId: replayId,
         startedAt: null,
         endedAt: null,
+        scheduledBeforeEnd: false,
+        endChunksParsed: 0, // The replay is 3 mins behind, we have to parse 3 more times to be up to date with the replay and get all events
         isFeatured: false,
         previousCheckpointTime: checkpointTime,
         latestCheckpointTime: 0,

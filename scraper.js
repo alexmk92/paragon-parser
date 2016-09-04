@@ -42,13 +42,13 @@ if(cluster.isWorker) {
         Replay.latest(null, 'true', recordFrom);
     }
 
-    // Start with a single call and then every 10 sec
+    // Start with a single call and then every 5 sec
     getCustomAndFeaturedReplays();
     setInterval(function() {
         getCustomAndFeaturedReplays();
     }, EXPIRED_REPLAYS_TIMEOUT);
 
-    // Get all of the less popular replays and service these once per 3 mins
+    // Get all of the less popular replays and service these once per 2.5 sec
     getLiveReplays();
     setInterval(function() {
         getLiveReplays();

@@ -358,17 +358,17 @@ Queue.prototype.failed = function(replay) {
  * Upon finishing this method calls @getNextJob and @workerDone.
  *
  * @param {object} replay - The Replay to reschedule
- * @param {number} ms - The amount of ms to delay by
+ * @param {number} seconds - The amount of seconds to delay by
  */
 
-Queue.prototype.schedule = function(replay, ms) {
+Queue.prototype.schedule = function(replay, seconds) {
     this.workerDone(replay).then(function() {
         this.removing = false;
 
         var conn = new Connection();
-        var scheduledDate = new Date(Date.now() + ms);
+        var scheduledDate = new Date(Date.now() + 60000);
         Logger.writeToConsole('[QUEUE] Scheduled to run: '.blue + replay.replayId + ' at: '.blue, scheduledDate);
-        var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE), priority=2, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, scheduled = DATE_ADD(NOW(), INTERVAL ' + seconds + ' SECOND), priority=2, checkpointTime=' + replay.replayJSON.latestCheckpointTime + ' WHERE replayId="' + replay.replayId + '"';
         conn.query(query, function(rows) {
             if(rows === null && replay.queryAttempts < 99999999999) {
                 console.log('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
@@ -385,7 +385,7 @@ Queue.prototype.schedule = function(replay, ms) {
         }.bind(this));
     }.bind(this), function() {
         setTimeout(function() {
-            this.schedule(replay, ms);
+            this.schedule(replay);
         }.bind(this), 1000);
     }.bind(this));
 
@@ -410,6 +410,11 @@ Queue.prototype.removeItemFromQueue = function(replay) {
         this.removing = false;
 
         var conn = new Connection();
+        delete replay.replayJSON.endChunksParsed;
+        delete replay.replayJSON.scheduledBeforeEnd;
+
+        console.log(replay.replayJSON);
+
         this.uploadFile(replay, function(err) {
             if(err === null) {
                 Logger.writeToConsole('[QUEUE] Replay '.green + replay.replayId + ' finished processing and uploaded to mongo successfully '.green + '✓');
