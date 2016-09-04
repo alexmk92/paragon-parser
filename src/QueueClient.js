@@ -383,7 +383,7 @@ Queue.prototype.schedule = function(replay, seconds) {
         }.bind(this));
     }.bind(this), function() {
         setTimeout(function() {
-            this.schedule(replay);
+            this.schedule(replay, seconds);
         }.bind(this), 1000);
     }.bind(this));
 
