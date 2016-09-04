@@ -99,7 +99,7 @@ cleanOnStart(function() {
 
     // Fetch the next process.env.REPLAY_FETCH_AMOUNT replays and reserve them for this box
     function fetchAndReserveReplays(callback) {
-        if(resumeServingAt >= new Date()) {
+        if(new Date() >= resumeServingAt) {
             var conn = new Connection();
             var updateQuery = 'UPDATE queue ' +
                 'SET reserved_by="' + lockedBy + '", reserved_at=NOW(), priority=0 ' +
