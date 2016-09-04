@@ -3,7 +3,6 @@ var http = require('http');
 var fs = require('fs');
 var Logger = require('./Logger');
 var Connection = require('./Connection');
-var request = require('request');
 
 var REPLAY_URL = 'https://orionreplay-public-service-prod09.ol.epicgames.com';
 
@@ -395,17 +394,7 @@ Replay.prototype.getPlayersAndGameType = function() {
                                 matchDetails.players = playersArray;
 
                                 if(!coop_ai && !solo_ai) { // If not a bot game, parse it
-                                    // Check for MMR
                                     resolve(matchDetails);
-                                    // this.getPlayersElo(playersArray, this.replayId).then(function(playersWithElo) {
-                                    //     matchDetails.players = playersWithElo;
-                                    //     //Logger.writeToConsole('[REPLAY] Successfully got players current ELO for this game.'.green);
-                                    //     resolve(matchDetails);
-                                    // }, function(err) {
-                                    //     //Logger.writeToConsole('[REPLAY] Failed to get players ELO: '.red + err);
-                                    //     Logger.writeToConsole('[REPLAY] Failed to get players ELO: '.red + this.replayId);
-                                    //     this.queueManager.failed(this);
-                                    // }.bind(this));
                                 } else {
                                     reject(true);
                                 }
@@ -424,99 +413,6 @@ Replay.prototype.getPlayersAndGameType = function() {
             }
         }.bind(this));
     }.bind(this));
-};
-
-/**
- * @getPlayersElo :
- * ------------------------
- * Type: POST (PGG API)
- * Endpoint: /api/v1/parser/getPlayersElo
- *
- * Makes a request to the Paragon host to start a getPlayersElo job, the request to
- * Paragon returns the input list of players with their current assigned ELO number
- * allowing us to do computation on this number once the game ends.  The request made
- * to Paragon spawns a job on the PGG queue, so we don't need to wait for it to finish
- *
- * This request returns a Promise which resolves with the new list of players with
- * their current attributed ELO
- *
- * @return {promise}
- */
-
-Replay.prototype.getPlayersElo = function(players, matchId) {
-    // TODO Migrate all requestify requests to request lib as its much more lightweight
-    var url = process.env.PGG_HOST + '/api/v1/parser/getPlayersElo';
-    return new Promise(function(resolve, reject) {
-        var options = {
-            url: url,
-            method: 'POST',
-            json: true,
-            body: { players: players, matchId: matchId },
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        };
-        request(options, function(err, response, body) {
-            if(err) {
-                //Logger.writeToConsole('Error: When getting player elo for match: '.red + matchId);
-                Logger.writeToConsole('Error: When getting player elo for match: '.red + matchId);
-                reject(err);
-            } else {
-                if(typeof body !== 'undefined' && body && body.length > 0) {
-                    //Logger.writeToConsole('response was: ', response.body);
-                    if(Object.prototype.toString.call(response.body) === '[object Array]') {
-                        var newPlayers = [];
-                        players.forEach(function(player) {
-                            response.body.some(function(playerElo) {
-                                if(playerElo.accountId === player.accountId) {
-                                    player.elo = playerElo.elo;
-                                    newPlayers.push(player);
-                                    return true;
-                                }
-                                return false;
-                            });
-                        });
-                        resolve(newPlayers);
-                    } else {
-                        //Logger.writeToConsole('[REPLAY] Response body was not an array, instead it was: '.red, response.body);
-                        Logger.writeToConsole('[REPLAY] Response body was not an array, instead it was'.red, response.body);
-                        reject();
-                    }
-                } else {
-                    //Logger.writeToConsole('Error: No data sent back from server in body: '.red + matchId);
-                    Logger.writeToConsole('[REPLAY] Error: No data sent back from server in body: '.red + matchId);
-                    reject('[REPLAY] Could not get player Elo for match: ' + matchId);
-                }
-            }
-        });
-    }.bind(this));
-};
-
-/**
- * @endMatch :
- * -----------
- * Type: GET (PGG API)
- * Endpoint: /api/v1/parser/endMatch/{replayId}
- *
- * Tells PGG that the match has finished processing, it will spawn a job on the pgg and
- * will calculate the players new ELO based on the match result
- *
- * We don't wait for a promise to resolve on this method as it does not directly effect
- * the execution of the process.  This will only be called when a replay has been fully
- * processed and @Queue.removeItemFromQueue is called.
- */
-
-Replay.prototype.endMatch = function() {
-
-    var url = process.env.PGG_HOST + '/api/v1/parser/endMatch/' + this.replayId;
-    //Logger.writeToConsole('Match ended, sending GET request to: ' + url);
-    requestify.get(url).then(function(response) {
-         //Logger.writeToConsole('Sent request to update player ELO:', response);
-    }, function(err) {
-        //Logger.writeToConsole('Error when match ended when trying to calculate new ELO: '.red, err);
-        Logger.writeToConsole('Error when match ended when trying to calculate new ELO: '.red, err);
-    });
-
 };
 
 /**
