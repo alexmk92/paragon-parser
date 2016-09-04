@@ -373,7 +373,7 @@ Queue.prototype.schedule = function(replay, seconds) {
                 Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     replay.queryAttempts++;
-                    this.schedule(replay, ms);
+                    this.schedule(replay, seconds);
                 }.bind(this), 1000);
             } else {
                 this.uploadFile(replay, function() {
