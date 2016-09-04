@@ -7,6 +7,7 @@ var Connection = require('./Connection');
 
 var clients = [];
 var lockedBy = null;
+var resumeServingAt = new Date();
 
 /**
  * @QueueManager :
@@ -58,7 +59,7 @@ cleanOnStart(function() {
 
                         fetchAndReserveReplays(function(replays) {
                             socket.hasReservedReplays = replays !== null;
-                            socket.write(JSON.stringify({ code: 200, action: 'replays', message: 'Reserving ' + process.env.REPLAY_FETCH_AMOUNT + ' replays for process: ' + lockedBy, body: replays }));
+                            socket.write(JSON.stringify({ code: 200, action: 'replays', message: 'Reserved ' + process.env.REPLAY_FETCH_AMOUNT + ' replays for process: ' + lockedBy, body: replays }));
                             lockedBy = null;
                         });
                     } else {
@@ -98,25 +99,31 @@ cleanOnStart(function() {
 
     // Fetch the next process.env.REPLAY_FETCH_AMOUNT replays and reserve them for this box
     function fetchAndReserveReplays(callback) {
-        var conn = new Connection();
-        var updateQuery = 'UPDATE queue ' +
-            'SET reserved_by="' + lockedBy + '", reserved_at=NOW(), priority=0 ' +
-            'WHERE replayId IN ' +
-            '   (SELECT replayId FROM (' +
-            '       SELECT replayId ' +
-            '       FROM queue ' +
-            '       WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' +
-            '       ORDER BY priority DESC LIMIT ' + process.env.REPLAY_FETCH_AMOUNT + '' +
-            '   ) ' +
-            'AS t)';
+        if(resumeServingAt >= new Date()) {
+            var conn = new Connection();
+            var updateQuery = 'UPDATE queue ' +
+                'SET reserved_by="' + lockedBy + '", reserved_at=NOW(), priority=0 ' +
+                'WHERE replayId IN ' +
+                '   (SELECT replayId FROM (' +
+                '       SELECT replayId ' +
+                '       FROM queue ' +
+                '       WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' +
+                '       ORDER BY priority DESC LIMIT ' + process.env.REPLAY_FETCH_AMOUNT + '' +
+                '   ) ' +
+                'AS t)';
 
-        conn.query(updateQuery, function(rows) {
-            if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
-                return callback(rows.affectedRows);
-            } else {
-                return callback(null);
-            }
-        })
+            conn.query(updateQuery, function(rows) {
+                if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
+                    return callback(rows.affectedRows);
+                } else {
+                    // lock for 10 seconds in future
+                    resumeServingAt = new Date((new Date().getTime() + 10000));
+                    return callback(null);
+                }
+            })
+        } else {
+            callback(null);
+        }
     }
 
     // Dispose of resources from a specific process ID
