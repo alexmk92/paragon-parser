@@ -652,9 +652,22 @@ Replay.prototype.isGameLive = function() {
                 reject();
             }
         }).catch(function(err) {
-            var error = 'Error in isGameLive: ' + JSON.stringify(err);
-            return this.queueManager.failed(this, error);
-            //reject();
+            // On fail, try to get players before failing the replay
+            this.getPlayersAndGameType().then(function(matchInfo) {
+                this.replayJSON.isLive = true;
+                this.replayJSON.players = matchInfo.players;
+                this.replayJSON.gameType = matchInfo.gameType;
+                this.replayJSON.isFeatured = matchInfo.isFeatured;
+                Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats'.yellow);
+                return this.queueManager.schedule(this, 90);
+            }.bind(this), function(isBotGame) {
+                if(isBotGame) {
+                    return this.queueManager.removeBotGame(this);
+                } else {
+                    var error = 'Error in isGameLive: ' + JSON.stringify(err);
+                    return this.queueManager.failed(this, error);
+                }
+            }.bind(this));
         }.bind(this));
     }.bind(this));
 };
