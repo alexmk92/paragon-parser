@@ -205,7 +205,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 }
             }.bind(this)).catch(function(err) {
                 var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
-                return this.queueManager.failed(this, err);
+                return this.queueManager.failed(this, error);
             }.bind(this));
         }.bind(this), function(httpStatus) {
             if(httpStatus === 404) {
