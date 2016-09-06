@@ -204,7 +204,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                     }
                 }
             }.bind(this)).catch(function(err) {
-                var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+                var error = 'Error in parseDataAtNextCheckpoint line 207: ' + JSON.stringify(err);
                 return this.queueManager.failed(this, error);
             }.bind(this));
         }.bind(this), function(httpStatus) {
@@ -523,7 +523,7 @@ Replay.prototype.getHeroDamageAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(allDamage);
     }.bind(this)).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getHeroDamageAtCheckpoint: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
     }.bind(this));
 };
@@ -594,7 +594,7 @@ Replay.prototype.getDamageForCheckpointId = function(eventId) {
             }
         }
     }).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getDamageForCheckpointId: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
 
     }.bind(this));
@@ -625,7 +625,7 @@ Replay.prototype.getReplaySummary = function() {
             return { code: 1 };
         }
     }).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getReplaySummary: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
     }.bind(this));
 };
@@ -652,7 +652,7 @@ Replay.prototype.isGameLive = function() {
                 reject();
             }
         }).catch(function(err) {
-            var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+            var error = 'Error in isGameLive: ' + JSON.stringify(err);
             return this.queueManager.failed(this, error);
             //reject();
         }.bind(this));
@@ -806,7 +806,7 @@ Replay.prototype.getHeroKillsAtCheckpoint = function(time1, time2) {
         }
         return Promise.all(events);
     }.bind(this)).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getHeroKillsAtCheckpoint: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
     }.bind(this));
 };
@@ -840,7 +840,7 @@ Replay.prototype.getDataForHeroKillId = function(id) {
             }
         }
     }).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getDataForHeroKillId: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
     }.bind(this));
 };
@@ -904,7 +904,7 @@ Replay.prototype.getNextCheckpoint = function(previousCheckpointTime) {
             return({ code: 2 });
         }
     }.bind(this)).catch(function(err) {
-        var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+        var error = 'Error in getNextCheckpoint: ' + JSON.stringify(err);
         return this.queueManager.failed(this, error);
     }.bind(this));
 };
@@ -1047,7 +1047,7 @@ Replay.latest = function(flag, live, recordFrom) {
                 reject('The body had no replay data.');
             }
         }).catch(function(err) {
-            var error = 'Error in parseDataAtNextCheckpoint: ' + JSON.stringify(err);
+            var error = 'Error in latest: ' + JSON.stringify(err);
             return this.queueManager.failed(this, error);
         }.bind(this));
     });
