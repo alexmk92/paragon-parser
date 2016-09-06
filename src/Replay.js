@@ -652,7 +652,7 @@ Replay.prototype.isGameLive = function() {
                 reject();
             }
         }).catch(function(err) {
-            // On fail, try to get players before failing the replay
+            // On fail, try to get players before failing the replay - this is so we don't end up uploading empty replays
             this.getPlayersAndGameType().then(function(matchInfo) {
                 this.replayJSON.isLive = true;
                 this.replayJSON.players = matchInfo.players;
