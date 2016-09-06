@@ -324,7 +324,7 @@ Queue.prototype.failed = function(replay, err) {
         replay.replayJSON = null;
         replay.deleting = true;
         var completed = replay.attempts > 10 ? 1 : 0;
-        var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority=1, scheduled = DATE_ADD(NOW(), INTERVAL 2 MINUTE) WHERE replayId = "' + replay.replayId + '"';
+        var query = 'UPDATE queue SET reserved_by=null, completed =' + completed + ', checkpointTime = 0, attempts = attempts + 1, priority=1, scheduled = DATE_ADD(NOW(), INTERVAL 1 MINUTE) WHERE replayId = "' + replay.replayId + '"';
         conn.query(query, function(row) {
             if(row === null && replay.queryAttempts < 99999999999) {
                 Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
@@ -333,7 +333,7 @@ Queue.prototype.failed = function(replay, err) {
                     this.failed(replay, err);
                 }.bind(this), 1000);
             } else if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
-                Logger.writeToConsole('[QUEUE] Attempt: '.red + replay.attempts + '/10, Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now. Error was: '.red + err);
+                Logger.writeToConsole('[QUEUE] Attempt: '.red + replay.attempts + '/10, Replay: '.red + replay.replayId + ' failed to process, rescheduling 1 minute from now. Error was: '.red + err);
                 this.deleteFile(replay, function() {});
                 this.getNextJob();
             } else {
