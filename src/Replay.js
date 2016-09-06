@@ -765,7 +765,8 @@ Replay.prototype.getTowerKillsAtCheckpoint = function(time1, time2, callback) {
         }
         return callback(events);
     }.bind(this)).catch(function(err) {
-        return this.queueManager.failed(this, err);
+        var error = 'Error in getTowerKillsAtCheckpoint: ' + JSON.stringify(err);
+        return this.queueManager.failed(this, error);
     }.bind(this));
 };
 

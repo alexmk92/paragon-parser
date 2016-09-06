@@ -333,7 +333,7 @@ Queue.prototype.failed = function(replay, err) {
                     this.failed(replay, err);
                 }.bind(this), 1000);
             } else if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
-                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now. Error was: '.red, err);
+                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now. Error was: '.red + err);
                 this.deleteFile(replay, function() {});
                 this.getNextJob();
             } else {
