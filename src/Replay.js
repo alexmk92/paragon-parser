@@ -82,7 +82,7 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                 //var liveString = data.isLive ? 'live' : 'not live';
                 //Logger.writeToConsole('Replay: '.magenta + this.replayId + ' is '.magenta + liveString + ' and has streamed '.magenta + this.replayJSON.latestCheckpointTime + '/'.magenta + this.maxCheckpointTime + 'ms'.magenta);
 
-                if(checkpoint.code === 2 && this.maxCheckpointTime === 0) {
+                if(checkpoint.code === 2) {
                     // this happens when no checkponint data is found
                     this.attempts++;
                     if(this.attempts > 10) {
@@ -91,22 +91,20 @@ Replay.prototype.parseDataAtCheckpoint = function() {
                         // TODO: Refactor this in future so its cleaner
                         // We check 5 times (5 minutes) to see if any events have happened, if not increment its failed attempts again
                         if(this.attempts <= 6) {
-                            if(typeof this.replayJSON.players !== 'undefined' && this.replayJSON.players.length === 0) {
-                                this.getPlayersAndGameType().then(function(matchInfo) {
-                                    this.replayJSON.players = matchInfo.players;
-                                    this.replayJSON.gameType = matchInfo.gameType;
-                                    this.replayJSON.isFeatured = matchInfo.isFeatured;
-                                    //Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
-                                    Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats'.yellow);
-                                    return this.queueManager.schedule(this, 90);
-                                }.bind(this), function(isBotGame) {
-                                    if(isBotGame) {
-                                        return this.queueManager.removeBotGame(this);
-                                    } else {
-                                        return this.queueManager.failed(this);
-                                    }
-                                }.bind(this));
-                            }
+                            this.getPlayersAndGameType().then(function(matchInfo) {
+                                this.replayJSON.players = matchInfo.players;
+                                this.replayJSON.gameType = matchInfo.gameType;
+                                this.replayJSON.isFeatured = matchInfo.isFeatured;
+                                //Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats: '.yellow + this.replayId);
+                                Logger.writeToConsole('[REPLAY] Replay: '.yellow + this.replayId + ' has no checkpoint data yet, but has been uploaded with empty stats'.yellow);
+                                return this.queueManager.schedule(this, 90);
+                            }.bind(this), function(isBotGame) {
+                                if(isBotGame) {
+                                    return this.queueManager.removeBotGame(this);
+                                } else {
+                                    return this.queueManager.failed(this);
+                                }
+                            }.bind(this));
                         } else {
                             return this.queueManager.failed(this);
                         }
