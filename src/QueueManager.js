@@ -107,11 +107,26 @@ cleanOnStart(function() {
                     '           SELECT replayId, reserved_by ' +
                     '           FROM queue ' +
                     '           WHERE reserved_by IS NULL ' +
+                    '           AND completed = false ' +
+                    '           AND scheduled <= NOW() ' +
                     '           ORDER BY priority DESC' +
                     '           LIMIT ' + process.env.REPLAY_FETCH_AMOUNT +
                     '     ) AS b ' +
                     'ON a.replayId = b.replayId ' +
                     'SET a.reserved_by="' + lockedBy + '", reserved_at = NOW(), priority = 0';
+
+            /*
+             var updateQuery = 'UPDATE queue ' +
+             'SET reserved_by="' + lockedBy + '", reserved_at=NOW(), priority=0 ' +
+             'WHERE replayId IN ' +
+             '   (SELECT replayId FROM (' +
+             '       SELECT replayId ' +
+             '       FROM queue ' +
+             '       WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' +
+             '       ORDER BY priority DESC LIMIT ' + process.env.REPLAY_FETCH_AMOUNT + '' +
+             '   ) ' +
+             'AS t)';
+             */
 
             conn.query(updateQuery, function(rows) {
                 if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
