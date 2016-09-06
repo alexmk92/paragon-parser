@@ -101,16 +101,17 @@ cleanOnStart(function() {
     function fetchAndReserveReplays(callback) {
         if(new Date() >= resumeServingAt) {
             var conn = new Connection();
-            var updateQuery = 'UPDATE queue ' +
-                'SET reserved_by="' + lockedBy + '", reserved_at=NOW(), priority=0 ' +
-                'WHERE replayId IN ' +
-                '   (SELECT replayId FROM (' +
-                '       SELECT replayId ' +
-                '       FROM queue ' +
-                '       WHERE completed=false AND reserved_by IS NULL AND scheduled <= NOW() ' +
-                '       ORDER BY priority DESC LIMIT ' + process.env.REPLAY_FETCH_AMOUNT + '' +
-                '   ) ' +
-                'AS t)';
+            // Optimised Update query
+            var updateQuery = 'UPDATE queue a ' +
+                    'JOIN ( ' +
+                    '           SELECT replayId, reserved_by ' +
+                    '           FROM queue ' +
+                    '           WHERE reserved_by IS NULL ' +
+                    '           ORDER BY priority DESC' +
+                    '           LIMIT ' + process.env.REPLAY_FETCH_AMOUNT +
+                    '     ) AS b ' +
+                    'ON a.replayId = b.replayId ' +
+                    'SET a.reserved_by="' + lockedBy + '", reserved_at = NOW(), priority = 0';
 
             conn.query(updateQuery, function(rows) {
                 if(typeof rows !== 'undefined' && rows !== null && rows.hasOwnProperty('affectedRows') && rows.affectedRows > 0) {
@@ -120,7 +121,7 @@ cleanOnStart(function() {
                     resumeServingAt = new Date((new Date().getTime() + 10000));
                     return callback(null);
                 }
-            })
+            });
         } else {
             callback(null);
         }
