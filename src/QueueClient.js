@@ -313,9 +313,10 @@ Queue.prototype.workerDone = function(replay) {
  * once this task finishes it calls @getNextJob
  *
  * @param {object} replay - The replay which failed
+ * @param {string} err - The error thrown
  */
 
-Queue.prototype.failed = function(replay) {
+Queue.prototype.failed = function(replay, err) {
     this.workerDone(replay).then(function() {
         this.removing = false;
 
@@ -329,10 +330,10 @@ Queue.prototype.failed = function(replay) {
                 Logger.writeToConsole('Attempt: '.yellow + replay.queryAttempts + '/99999999999 Retrying query for replay: '.yellow + replay.replayId + ' in 1s'.yellow);
                 setTimeout(function() {
                     replay.queryAttempts++;
-                    this.failed(replay);
+                    this.failed(replay, err);
                 }.bind(this), 1000);
             } else if(typeof row !== 'undefined' && row !== null && row.affectedRows !== 0) {
-                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now'.red);
+                Logger.writeToConsole('[QUEUE] Replay: '.red + replay.replayId + ' failed to process, rescheduling 2 minutes from now. Error was: '.red + err);
                 this.deleteFile(replay, function() {});
                 this.getNextJob();
             } else {
@@ -342,7 +343,7 @@ Queue.prototype.failed = function(replay) {
         }.bind(this));
     }.bind(this), function() {
         setTimeout(function() {
-            this.failed(replay);
+            this.failed(replay, err);
         }.bind(this), 1000);
     }.bind(this));
 
@@ -430,7 +431,7 @@ Queue.prototype.removeItemFromQueue = function(replay) {
                 } else {
                     Logger.writeToConsole('[QUEUE] There was an error when uploading file (this is callback from remove item from queue): '.red + err.message);
                     replay.replayJSON = Replay.getEmptyReplayObject();
-                    this.failed(replay);
+                    this.failed(replay, 'Error uploading file in Queue line 434');
                 }
             }.bind(this));
         }.bind(this));
@@ -549,12 +550,12 @@ Queue.prototype.uploadFile = function(replay, callback) {
                     }
                 }.bind(this));
         } catch(e) {
-            this.failed(replay);
+            this.failed(replay, 'Error uploading replay in Queue line 553');
             Logger.writeToConsole('[MONGO ERROR] in OldQueue.js when uploading relay: '.red + replay.replayId + '.  Error: '.red, e);
             return callback({ message: 'failed to upload' });
         }
     } else {
-        this.failed(replay);
+        this.failed(replay, 'Error uploading replay in Queue line 558');
         return callback({ message: 'replay JSON was null'})
     }
 };
